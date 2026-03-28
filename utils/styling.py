@@ -11,23 +11,30 @@ COLORS = {
 def style_table(df):
     df2 = df.copy()
 
-    # ✅ Formatage en HhMM
+    # ✅ Garder la colonne Durée brute (float) jusqu'au style
     def format_h_m(x):
+        if not isinstance(x, (float, int)):
+            return x  # déjà formaté → on ne le traite plus
         h = int(x)
         m = int((x - h) * 60)
         return f"{h}h {m:02d}min"
 
-    # Appliquer format HhMM
-    df2["Durée"] = df2["Durée"].apply(format_h_m)
+    # ✅ Nouvelle colonne formatée, l'ancienne reste disponible si besoin
+    df2["Durée_fmt"] = df2["Durée"].apply(format_h_m)
 
-    # ✅ Ligne TOTAL — 5 colonnes EXACTEMENT
+    # ✅ Ligne TOTAL — parfaitement cohérente
+    total_dur = df2["Durée"].sum()
     df2.loc["TOTAL"] = [
         "TOTAL",
         df2["Distance_km"].sum(),
         df2["D+"].sum(),
         df2["D-"].sum(),
-        format_h_m(df["Durée"].sum())
+        total_dur,
+        format_h_m(total_dur)   # formaté proprement
     ]
+
+    # ✅ On renomme les colonnes pour affichage final
+    df2 = df2.rename(columns={"Durée_fmt": "Durée"})
 
     # ✅ Coloration conditionnelle
     def color_row(row):
@@ -40,6 +47,7 @@ def style_table(df):
 
     styler = df2.style.apply(color_row, axis=1)
 
+    # ✅ Formats numériques pour les colonnes pertinentes
     styler = styler.format({
         "Distance_km": "{:.2f}",
         "D+": "{:.0f}",
