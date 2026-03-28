@@ -98,8 +98,11 @@ if uploaded_file:
             m = int((x - h) * 60)
             return f"{h}h {m:02d}min"
         
-        df["Durée"] = df["Durée_h"].apply(format_h_m)
-
+        # Ajout de la colonne Durée en HhMM
+        df_segments = df_segments.copy()  # éviter vue pandas
+        
+        df_segments["Durée"] = df_segments["Durée_h"].apply(format_h_m)
+        
         styled = style_table(df_segments)
         st.write(styled.to_html(), unsafe_allow_html=True)
 
