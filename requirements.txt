@@ -1,7 +1,9 @@
 streamlit
-pandas
-numpy
 gpxpy
+pandas
+matplotlib
+numpy
+scipy
 folium
 streamlit-folium
-matplotlib
+plotly
