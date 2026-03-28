@@ -9,45 +9,48 @@ COLORS = {
 }
 
 def style_table(df):
+    # Copie de sécurité
     df2 = df.copy()
 
-    # ✅ Garder la colonne Durée brute (float) jusqu'au style
+    # ✅ FORMATAGE DURÉE EN Hh MMmin
     def format_h_m(x):
-        if not isinstance(x, (float, int)):
-            return x  # déjà formaté → on ne le traite plus
+        if isinstance(x, str):
+            return x    # déjà formaté → ne pas retraiter
         h = int(x)
         m = int((x - h) * 60)
         return f"{h}h {m:02d}min"
 
-    # ✅ Nouvelle colonne formatée, l'ancienne reste disponible si besoin
-    df2["Durée_fmt"] = df2["Durée"].apply(format_h_m)
+    # ✅ Convertir Durée brute en Durée formatée
+    df2["Durée"] = df2["Durée"].apply(format_h_m)
 
-    # ✅ Ligne TOTAL — parfaitement cohérente
-    total_dur = df2["Durée"].sum()
+    # ✅ AJOUT LIGNE TOTAL — EXACTEMENT LES MÊMES 5 COLONNES
+    total_distance = df2["Distance_km"].astype(float).sum()
+    total_dplus = df2["D+"].astype(float).sum()
+    total_dminus = df2["D-"].astype(float).sum()
+
+    # durée totale
+    raw_total_duration = df["Durée"].replace("", 0)
+    total_duration_h = df["Durée_raw"].sum() if "Durée_raw" in df else df["Durée"].sum()
+
     df2.loc["TOTAL"] = [
         "TOTAL",
-        df2["Distance_km"].sum(),
-        df2["D+"].sum(),
-        df2["D-"].sum(),
-        total_dur,
-        format_h_m(total_dur)   # formaté proprement
+        total_distance,
+        total_dplus,
+        total_dminus,
+        format_h_m(total_duration_h)   # ⭐ Formaté directement
     ]
 
-    # ✅ On renomme les colonnes pour affichage final
-    df2 = df2.rename(columns={"Durée_fmt": "Durée"})
-
-    # ✅ Coloration conditionnelle
+    # ✅ COLORATION CONDITIONNELLE
     def color_row(row):
-        t = row["Type"]
-        if t == "TOTAL":
+        if row["Type"] == "TOTAL":
             return ["background-color: #dddddd; color: black; font-weight: bold"] * len(row)
-        if t in COLORS:
-            return [f"background-color: {COLORS[t]}; color: black"] * len(row)
-        return [""] * len(row)
+
+        color = COLORS.get(row["Type"], "")
+        return [f"background-color: {color}; color: black"] * len(row)
 
     styler = df2.style.apply(color_row, axis=1)
 
-    # ✅ Formats numériques pour les colonnes pertinentes
+    # ✅ Format chiffres
     styler = styler.format({
         "Distance_km": "{:.2f}",
         "D+": "{:.0f}",
