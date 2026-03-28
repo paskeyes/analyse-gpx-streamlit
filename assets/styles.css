@@ -1,0 +1,15 @@
+body {
+    font-family: "Inter", sans-serif;
+}
+
+.block-container {
+    padding-top: 1rem;
+}
+
+h1, h2, h3 {
+    font-weight: 700;
+}
+
+table {
+    font-size: 1.1rem;
+}
