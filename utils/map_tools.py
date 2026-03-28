@@ -8,22 +8,36 @@ def color_by_pct(pct):
     if 1 < pct <= 5: return "orange"
     return "red"
 
-def build_map(profile):
-    if profile.empty:
+def build_map(profile_df):
+
+    # Si pas de coordonnées, retourne carte vide
+    if profile_df.empty:
         return folium.Map(location=[44.84, -0.58], zoom_start=12)
 
-    # Dummy lat/lon (Streamlit security forbids full lat/lon in preview)
-    # But you will replace this with real GPX coordinates if needed.
-    # For now we draw altitude vs distance.
-    base = folium.Map(location=[44.84, -0.58], zoom_start=12)
+    # Centre de la carte = premier point
+    lat0 = profile_df["lat"].iloc[0]
+    lon0 = profile_df["lon"].iloc[0]
 
-    coords = []
-    for _, row in profile.iterrows():
-        coords.append([44.84 + row["alt"]/100000, -0.58 + row["dist_km"]/100000])
+    m = folium.Map(location=[lat0, lon0], zoom_start=13)
 
-    # Fake slope for visual
-    for i in range(1, len(coords)):
-        pct = (coords[i][0] - coords[i-1][0])*10000
-        PolyLine([coords[i-1], coords[i]], color=color_by_pct(pct), weight=4).add_to(base)
+    # Tracé segment par segment, coloré selon la pente
+    for i in range(1, len(profile_df)):
+        p1 = profile_df.iloc[i-1]
+        p2 = profile_df.iloc[i]
 
-    return base
+        dalt = p2["alt"] - p1["alt"]
+        # distance horizontale en mètres
+        d = ((p2["lat"] - p1["lat"])**2 + (p2["lon"] - p1["lon"])**2)**0.5
+        pct = (dalt / d)*100 if d != 0 else 0
+
+        PolyLine(
+            locations=[
+                [p1["lat"], p1["lon"]],
+                [p2["lat"], p2["lon"]]
+            ],
+            color=color_by_pct(pct),
+            weight=4,
+            opacity=0.9
+        ).add_to(m)
+
+    return m
