@@ -1,5 +1,7 @@
 streamlit
-gpxpy
 pandas
+numpy
+gpxpy
+folium
+streamlit-folium
 matplotlib
-tabulate
