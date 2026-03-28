@@ -54,12 +54,15 @@ def parse_gpx_and_compute(uploaded_file, params):
                     pct = (dalt / dist * 100) if dist > 0 else 0
                     cat = classify(pct)
 
-                    # accumulate
+                    # accumulate distance
                     seg_stats[cat]["dist"] += dist
-                    if dalt > 0:
-                        seg_stats[cat]["d+"] += dalt
-                    else:
-                        seg_stats[cat]["d-"] += dalt
+                    
+                    # accumulate elevation ONLY if not flat
+                    if cat != "plat":
+                        if dalt > 0:
+                            seg_stats[cat]["d+"] += dalt
+                        else:
+                            seg_stats[cat]["d-"] += dalt
                     
                     profile.append({
                         "dist_km": total_dist/1000,
