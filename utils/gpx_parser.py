@@ -83,16 +83,17 @@ def parse_gpx_and_compute(uploaded_file, params):
         elif k == "forte_montee":
             v["dur"] = v["d+"] / params["forte_montee_vam"]
 
-df = pd.DataFrame([
-    {
-        "Type": k,
-        "Distance_km": v["dist"] / 1000,
-        "D+": v["d+"],
-        "D-": v["d-"],
-        "Durée": v["dur"]   # durée brute en heures
-    }
-    for k, v in seg_stats.items()
-])
+    # ✅ FIX : dictionnaire correctement fermé
+    df = pd.DataFrame([
+        {
+            "Type": k,
+            "Distance_km": v["dist"]/1000,
+            "D+": v["d+"],
+            "D-": v["d-"],
+            "Durée": v["dur"]
+        }
+        for k,v in seg_stats.items()
+    ])
 
     # summary
     tot_dist = df["Distance_km"].sum()
