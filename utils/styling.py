@@ -9,31 +9,45 @@ COLORS = {
 }
 
 def style_table(df):
+    # Toujours travailler sur une copie
     df2 = df.copy()
 
-    # Ajout de TOTAL
+    # ✅ Colonne Durée formatée en HhMM
+    def format_h_m(x):
+        h = int(x)
+        m = int((x - h) * 60)
+        return f"{h}h {m:02d}min"
+
+    df2["Durée"] = df2["Durée_h"].apply(format_h_m)
+
+    # ✅ AJOUT DE LA LIGNE TOTAL (6 colonnes EXACTES)
     df2.loc["TOTAL"] = [
         "TOTAL",
         df2["Distance_km"].sum(),
         df2["D+"].sum(),
         df2["D-"].sum(),
         df2["Durée_h"].sum(),
+        format_h_m(df2["Durée_h"].sum())   # ✅ colonne Durée formatée
     ]
 
+    # ✅ COLORATION CONDITIONNELLE
     def color_row(row):
-        if row["Type"] == "TOTAL":
+        t = row["Type"]
+        if t == "TOTAL":
             return ["background-color: #dddddd; color: black; font-weight: bold"] * len(row)
-        if row["Type"] in COLORS:
-            return [f"background-color: {COLORS[row['Type']]}; color: black"] * len(row)
+
+        if t in COLORS:
+            return [f"background-color: {COLORS[t]}; color: black"] * len(row)
+
         return [""] * len(row)
 
     styler = df2.style.apply(color_row, axis=1)
 
-    # ✅ Remplace set_precision (incompatible)
+    # ✅ Format Pandas >= 2.0
     styler = styler.format({
         "Distance_km": "{:.2f}",
-        "D+": "{:.2f}",
-        "D-": "{:.2f}",
+        "D+": "{:.0f}",
+        "D-": "{:.0f}",
         "Durée_h": "{:.3f}"
     })
 
