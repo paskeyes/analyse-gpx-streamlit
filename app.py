@@ -91,21 +91,11 @@ if uploaded_file:
     # -------------------------
     # TABLEAU DANS EXPANDER (TT-1)
     # -------------------------
+
     with st.expander("📊 Tableau détaillé des segments"):
-        
-        def format_h_m(x):
-            h = int(x)
-            m = int((x - h) * 60)
-            return f"{h}h {m:02d}min"
-        
-        # Ajout de la colonne Durée en HhMM
-        df_segments = df_segments.copy()  # éviter vue pandas
-        
-        df_segments["Durée"] = df_segments["Durée"].apply(format_h_m)
-        
         styled = style_table(df_segments)
         st.write(styled.to_html(), unsafe_allow_html=True)
-
+    
         st.download_button(
             "⬇️ Exporter en CSV",
             df_segments.to_csv(index=False),
