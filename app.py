@@ -1,127 +1,118 @@
 import streamlit as st
-import gpxpy
-import math
 import pandas as pd
-import matplotlib.pyplot as plt
+from utils.gpx_parser import parse_gpx_and_compute
+from utils.map_tools import build_map
+from utils.styling import style_table
+from streamlit_folium import st_folium
 
-# Classification thresholds
-tolerances = {
-    'plat': (-1, 1),
-    'petite_montee': (1, 5),
-    'forte_montee': (5, 100),
-    'petite_descente': (-5, -1),
-    'forte_descente': (-100, -5)
-}
+# -------------------------
+# AUTHENTIFICATION (Mot de passe ajouté dans Streamlit Cloud)
+# -------------------------
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
 
-def haversine(lat1, lon1, lat2, lon2):
-    R = 6371000
-    phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlambda = math.radians(lon2 - lon1)
-    a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
-    return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+if not st.session_state.authenticated:
+    pwd = st.text_input("🔐 Entrez le mot de passe :", type="password")
+    if pwd:
+        if "password" in st.secrets and pwd == st.secrets["password"]:
+            st.session_state.authenticated = True
+        else:
+            st.error("❌ Mot de passe incorrect.")
+            st.stop()
+    else:
+        st.stop()
 
-def classify_segment(pct):
-    for key, (low, high) in tolerances.items():
-        if low <= pct <= high:
-            return key
-    return None
+# -------------------------
+# CONFIG PAGE
+# -------------------------
+st.set_page_config(
+    page_title="Analyse GPX",
+    layout="centered",
+    initial_sidebar_state="expanded"
+)
 
-def analyze_gpx(gpx):
-    segments = {k: {'dist': 0, 'd+': 0, 'd-': 0} for k in tolerances.keys()}
+st.title("🚴 Analyse GPX & Estimation du Temps")
 
-    profile_dist = []
-    profile_alt = []
+st.divider()
 
-    total_dist = 0
-    first_point = True
+# -------------------------
+# PARAMÈTRES AVEC SAUVEGARDE
+# -------------------------
+st.sidebar.header("⚙️ Paramètres Vitesse & VAM")
 
-    for track in gpx.tracks:
-        for segment in track.segments:
-            points = segment.points
-            for i in range(1, len(points)):
-                p1, p2 = points[i-1], points[i]
+if "params" not in st.session_state:
+    st.session_state.params = {
+        "plat_speed": 27,
+        "petite_descente_speed": 30,
+        "forte_descente_speed": 40,
+        "petite_montee_vam": 1000,
+        "forte_montee_vam": 800
+    }
 
-                # Initialize first point
-                if first_point:
-                    profile_alt.append(p1.elevation)
-                    profile_dist.append(0)
-                    first_point = False
+params = st.session_state.params
 
-                dist = haversine(p1.latitude, p1.longitude, p2.latitude, p2.longitude)
-                elev_diff = (p2.elevation or 0) - (p1.elevation or 0)
+# Entrées utilisateur
+params["plat_speed"] = st.sidebar.number_input("Vitesse sur plat (km/h)", 5, 60, params["plat_speed"])
+params["petite_descente_speed"] = st.sidebar.number_input("Vitesse petite descente (km/h)", 5, 80, params["petite_descente_speed"])
+params["forte_descente_speed"] = st.sidebar.number_input("Vitesse forte descente (km/h)", 5, 100, params["forte_descente_speed"])
+params["petite_montee_vam"] = st.sidebar.number_input("VAM petite montée (m/h)", 200, 3000, params["petite_montee_vam"])
+params["forte_montee_vam"] = st.sidebar.number_input("VAM forte montée (m/h)", 200, 3000, params["forte_montee_vam"])
 
-                total_dist += dist
+colA, colB = st.sidebar.columns(2)
+if colA.button("✅ Sauver par défaut"):
+    st.success("✅ Paramètres sauvegardés.")
 
-                profile_alt.append(p2.elevation)
-                profile_dist.append(total_dist / 1000)
+if colB.button("♻️ Réinitialiser"):
+    st.session_state.params = {
+        "plat_speed": 27,
+        "petite_descente_speed": 30,
+        "forte_descente_speed": 40,
+        "petite_montee_vam": 1000,
+        "forte_montee_vam": 800
+    }
+    st.rerun()
 
-                pct = (elev_diff / dist) * 100 if dist > 0 else 0
-                cat = classify_segment(pct)
+# -------------------------
+# UPLOAD GPX
+# -------------------------
+uploaded_file = st.file_uploader("📤 Importer un fichier GPX", type=["gpx"])
 
-                if not cat:
-                    continue
+if uploaded_file:
+    df_segments, profile, total_summary = parse_gpx_and_compute(uploaded_file, params)
 
-                if 'montee' in cat:
-                    segments[cat]['dist'] += dist
-                    segments[cat]['d+'] += max(0, elev_diff)
-                elif 'descente' in cat:
-                    segments[cat]['dist'] += dist
-                    segments[cat]['d-'] += min(0, elev_diff)
-                else:  # flat
-                    segments['plat']['dist'] += dist
+    st.subheader("📈 Résumé automatique")
+    st.markdown(total_summary["text"])
 
-    return segments, profile_dist, profile_alt
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Distance totale", f"{total_summary['distance']:.1f} km")
+    col2.metric("Dénivelé positif", f"{total_summary['d+']:.0f} m")
+    col3.metric("Temps estimé", f"{total_summary['h_str']}")
 
-def estimate_time(segments, params):
-    t = 0
-    t += (segments['plat']['dist'] / 1000) / params['plat_speed']
-    t += segments['petite_montee']['d+'] / params['petite_montee_vam']
-    t += segments['forte_montee']['d+'] / params['forte_montee_vam']
-    t += (segments['petite_descente']['dist'] / 1000) / params['petite_descente_speed']
-    t += (segments['forte_descente']['dist'] / 1000) / params['forte_descente_speed']
-    return t
+    # -------------------------
+    # TABLEAU DANS EXPANDER (TT-1)
+    # -------------------------
+    with st.expander("📊 Tableau détaillé des segments"):
+        styled = style_table(df_segments)
+        st.write(styled.to_html(), unsafe_allow_html=True)
 
-st.title("Analyse GPX – Estimation du Temps")
+        st.download_button(
+            "⬇️ Exporter en CSV",
+            df_segments.to_csv(index=False),
+            "segments.csv"
+        )
 
-st.sidebar.header("Paramètres vitesse / VAM")
-params = {
-    'petite_montee_vam': st.sidebar.number_input("VAM petite montée (m/h)", 200, 3000, 1000),
-    'forte_montee_vam': st.sidebar.number_input("VAM forte montée (m/h)", 200, 3000, 800),
-    'plat_speed': st.sidebar.number_input("Vitesse sur plat (km/h)", 5, 60, 27),
-    'petite_descente_speed': st.sidebar.number_input("Vitesse petite descente (km/h)", 5, 80, 30),
-    'forte_descente_speed': st.sidebar.number_input("Vitesse forte descente (km/h)", 5, 100, 40)
-}
+    # -------------------------
+    # CARTE FOLIUM (en expander)
+    # -------------------------
+    with st.expander("🗺️ Carte interactive GPX"):
+        folium_map = build_map(profile)
+        st_folium(folium_map, width=700, height=500)
 
-uploaded = st.file_uploader("Importer un GPX", type=["gpx"])
+    # -------------------------
+    # PROFIL ALT
+    # -------------------------
+    st.subheader("📉 Profil altimétrique")
+    st.line_chart(profile.set_index("dist_km")["alt"])
 
-if uploaded:
-    gpx = gpxpy.parse(uploaded)
-    segments, prof_dist, prof_alt = analyze_gpx(gpx)
-
-    df = pd.DataFrame([
-        {
-            'Type': k,
-            'Distance_km': v['dist'] / 1000,
-            'D+': v['d+'],
-            'D-': v['d-']
-        }
-        for k, v in segments.items()
-    ])
-
-    st.subheader("Résumé des segments")
-    st.dataframe(df)
-
-    # Profile plot
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(prof_dist, prof_alt)
-    ax.set_xlabel("Distance (km)")
-    ax.set_ylabel("Altitude (m)")
-    st.pyplot(fig)
-
-    t = estimate_time(segments, params)
-
-    st.subheader("Temps estimé")
-    st.write(f"{int(t)}h {int((t % 1) * 60)}m ({t:.2f} h)")
-
-    st.download_button("Exporter CSV", df.to_csv(index=False).encode(), "segments.csv")
+else:
+    st.info("👉 Importez un fichier GPX pour commencer.")
