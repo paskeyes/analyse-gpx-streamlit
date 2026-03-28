@@ -90,7 +90,7 @@ def parse_gpx_and_compute(uploaded_file, params):
             "Distance_km": v["dist"]/1000,
             "D+": v["d+"],
             "D-": v["d-"],
-            "Durée": v["dur"]
+            "Durée": v["dur"]    # durée brute (float)
         }
         for k,v in seg_stats.items()
     ])
