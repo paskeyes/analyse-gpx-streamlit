@@ -3,10 +3,10 @@ import gpxpy
 import math
 import pandas as pd
 import matplotlib.pyplot as plt
+from tabulate import tabulate
+import io
 
-# -----------------------------------------------------------
-# PARAMÈTRES DE PENTE (fixes)
-# -----------------------------------------------------------
+# --- Classification rules ---
 tolerances = {
     'plat': (-1, 1),
     'petite_montee': (1, 5),
@@ -15,38 +15,15 @@ tolerances = {
     'forte_descente': (-100, -5)
 }
 
-# -----------------------------------------------------------
-# INTERFACE UTILISATEUR : PARAMÈTRES MANUELS
-# -----------------------------------------------------------
-
-st.sidebar.header("⚙️ Paramètres personnalisables")
-
+# --- Speeds and VAMs ---
 params = {
-    'plat_speed': st.sidebar.number_input(
-        "Vitesse moyenne sur plat (km/h)",
-        min_value=1.0, max_value=80.0, value=27.0, step=0.5
-    ),
-    'petite_montee_vam': st.sidebar.number_input(
-        "VAM petite montée (m/h)",
-        min_value=100.0, max_value=3000.0, value=800.0, step=10.0
-    ),
-    'forte_montee_vam': st.sidebar.number_input(
-        "VAM forte montée (m/h)",
-        min_value=100.0, max_value=3000.0, value=700.0, step=10.0
-    ),
-    'petite_descente_speed': st.sidebar.number_input(
-        "Vitesse petite descente (km/h)",
-        min_value=1.0, max_value=120.0, value=30.0, step=1.0
-    ),
-    'forte_descente_speed': st.sidebar.number_input(
-        "Vitesse forte descente (km/h)",
-        min_value=1.0, max_value=150.0, value=40.0, step=1.0
-    )
+    'petite_montee_vam': 1000,
+    'forte_montee_vam': 800,
+    'plat_speed': 27,
+    'petite_descente_speed': 30,
+    'forte_descente_speed': 40
 }
 
-# -----------------------------------------------------------
-# OUTILS
-# -----------------------------------------------------------
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371000
     phi1 = math.radians(lat1)
@@ -62,13 +39,7 @@ def classify_segment(pct):
             return key
     return None
 
-# -----------------------------------------------------------
-# ANALYSE GPX
-# -----------------------------------------------------------
-def analyze_gpx(file):
-
-    gpx = gpxpy.parse(file)
-
+def analyze_gpx(gpx):
     segments = {
         'plat': {'dist': 0, 'd+': 0, 'd-': 0},
         'petite_montee': {'dist': 0, 'd+': 0},
@@ -77,146 +48,75 @@ def analyze_gpx(file):
         'forte_descente': {'dist': 0, 'd-': 0}
     }
 
-    if gpx.tracks:
-        points = []
-        for track in gpx.tracks:
-            for seg in track.segments:
-                points.extend(seg.points)
-    elif gpx.routes:
-        points = gpx.routes[0].points
-    else:
-        points = gpx.waypoints
+    profile_alt = []
+    profile_dist = [0]
+    total_dist = 0
 
-    altitudes = []
+    for track in gpx.tracks:
+        for segment in track.segments:
+            points = segment.points
+            for i in range(1, len(points)):
+                p1, p2 = points[i-1], points[i]
+                dist = haversine(p1.latitude, p1.longitude, p2.latitude, p2.longitude)
+                elev_diff = (p2.elevation or 0) - (p1.elevation or 0)
 
-    for i in range(1, len(points)):
-        p1, p2 = points[i-1], points[i]
+                total_dist += dist
+                profile_alt.append(p2.elevation)
+                profile_dist.append(total_dist/1000)
 
-        dist_m = haversine(p1.latitude, p1.longitude, p2.latitude, p2.longitude)
-        elev_diff = (p2.elevation or 0) - (p1.elevation or 0)
-        pct = (elev_diff / dist_m * 100) if dist_m > 0 else 0
+                pct = (elev_diff / dist) * 100 if dist > 0 else 0
+                category = classify_segment(pct)
 
-        altitudes.append(p2.elevation)
+                if category:
+                    if 'montee' in category:
+                        segments[category]['dist'] += dist
+                        segments[category]['d+'] += max(0, elev_diff)
+                    elif 'descente' in category:
+                        segments[category]['dist'] += dist
+                        segments[category]['d-'] += min(0, elev_diff)
+                    else:
+                        segments['plat']['dist'] += dist
 
-        category = classify_segment(pct)
-        if not category:
-            continue
+    return segments, profile_dist, profile_alt
 
-        if "montee" in category:
-            segments[category]['dist'] += dist_m
-            segments[category]['d+'] += max(0, elev_diff)
-        elif "descente" in category:
-            segments[category]['dist'] += dist_m
-            segments[category]['d-'] += min(0, elev_diff)
-        else:
-            segments['plat']['dist'] += dist_m
-
-    return segments, altitudes
-
-# -----------------------------------------------------------
-# TEMPS TOTAL
-# -----------------------------------------------------------
 def estimate_time(segments):
-    t = 0
-    t += (segments['plat']['dist']/1000) / params['plat_speed']
-    t += (segments['petite_montee']['d+']) / params['petite_montee_vam']
-    t += (segments['forte_montee']['d+']) / params['forte_montee_vam']
-    t += (segments['petite_descente']['dist']/1000) / params['petite_descente_speed']
-    t += (segments['forte_descente']['dist']/1000) / params['forte_descente_speed']
-    return t
+    h = 0
+    h += (segments['plat']['dist']/1000)/params['plat_speed']
+    h += (segments['petite_montee']['d+']/params['petite_montee_vam'])
+    h += (segments['forte_montee']['d+']/params['forte_montee_vam'])
+    h += (segments['petite_descente']['dist']/1000)/params['petite_descente_speed']
+    h += (segments['forte_descente']['dist']/1000)/params['forte_descente_speed']
+    return h
 
-# -----------------------------------------------------------
-# INTERFACE PRINCIPALE
-# -----------------------------------------------------------
+# ----- Streamlit UI -----
+st.title("Analyse GPX et Estimation du Temps")
 
-st.title("🚴 Analyse complète d’un fichier GPX — Paramètres personnalisables")
+uploaded = st.file_uploader("Importer un fichier GPX", type=["gpx"])
 
-# ✅ AJOUT : affichage des types de segments
-st.subheader("📐 Types de segments et intervalles de pente")
-st.markdown(f"""
-**Plat** : {tolerances['plat'][0]}% → +{tolerances['plat'][1]}%  
-**Petite montée** : +{tolerances['petite_montee'][0]}% → +{tolerances['petite_montee'][1]}%  
-**Forte montée** : +{tolerances['forte_montee'][0]}% → +∞%  
-**Petite descente** : {tolerances['petite_descente'][0]}% → {tolerances['petite_descente'][1]}%  
-**Forte descente** : -∞% → {tolerances['forte_descente'][1]}%  
-""")
+if uploaded:
+    gpx = gpxpy.parse(uploaded)
+    segments, prof_dist, prof_alt = analyze_gpx(gpx)
 
-uploaded_file = st.file_uploader("📂 Choisissez un fichier GPX", type=["gpx"])
+    df = []
+    for k,v in segments.items():
+        df.append([k, v['dist']/1000, v.get('d+',0), v.get('d-',0)])
+    df = pd.DataFrame(df, columns=["Type", "Distance_km", "D+", "D-"])
 
-if uploaded_file:
-    st.success("✅ Fichier chargé")
-
-    segments, altitudes = analyze_gpx(uploaded_file)
-
-    rows = []
-    total_dist_km = 0
-    total_dplus = 0
-    total_dminus = 0
-    total_duree_min = 0
-
-    for seg_type, data in segments.items():
-
-        dist_km = data["dist"] / 1000
-
-        # Durée selon type
-        if "montee" in seg_type:
-            dplus = data.get("d+", 0)
-            if seg_type == "petite_montee":
-                duree = (dplus / params["petite_montee_vam"]) * 60
-            else:
-                duree = (dplus / params["forte_montee_vam"]) * 60
-        else:
-            if seg_type == "plat":
-                vitesse = params["plat_speed"]
-            elif seg_type == "petite_descente":
-                vitesse = params["petite_descente_speed"]
-            else:
-                vitesse = params["forte_descente_speed"]
-            duree = (dist_km / vitesse) * 60
-
-        rows.append({
-            "Type": seg_type,
-            "Distance (km)": f"{dist_km:.2f}",
-            "D+ (m)": f"{data.get('d+', 0):.0f}",
-            "D- (m)": f"{data.get('d-', 0):.0f}",
-            "Durée (min)": f"{duree:.1f}"
-        })
-
-        total_dist_km += dist_km
-        total_dplus += data.get("d+", 0)
-        total_dminus += data.get("d-", 0)
-        total_duree_min += duree
-
-    # Ligne TOTAL
-    tot_h = int(total_duree_min // 60)
-    tot_m = int(total_duree_min % 60)
-
-    rows.append({
-        "Type": "TOTAL",
-        "Distance (km)": f"{total_dist_km:.2f}",
-        "D+ (m)": f"{total_dplus}",
-        "D- (m)": f"{total_dminus}",
-        "Durée": f"{tot_h}h {tot_m}min"
-    })
-
-    df = pd.DataFrame(rows)
-    st.subheader("📊 Tableau d'analyse")
+    st.subheader("Tableau récapitulatif")
     st.dataframe(df)
 
-    # Temps total
-    temps_h = estimate_time(segments)
-    st.subheader("⏱️ Temps estimé total")
-    st.write(f"**{temps_h:.2f} heures / {temps_h*60:.0f} minutes**")
+    # Profile plot
+    fig, ax = plt.subplots(figsize=(10,4))
+    ax.plot(prof_dist, prof_alt)
+    ax.set_xlabel("Distance (km)")
+    ax.set_ylabel("Altitude (m)")
+    st.pyplot(fig)
+
+    # Estimated time
+    h = estimate_time(segments)
+    st.subheader("Temps estimé")
+    st.write(f"**{h:.2f} h** soit {int(h)}h {int((h-int(h))*60)}m")
 
     # Export CSV
-    csv = df.to_csv(index=False).encode("utf-8")
-    st.download_button("⬇️ Télécharger le tableau (CSV)", csv, "analyse_gpx.csv")
-
-    # Graphique altimétrique
-    st.subheader("📈 Profil altimétrique")
-    plt.figure(figsize=(10,4))
-    plt.plot(altitudes)
-    plt.xlabel("Points")
-    plt.ylabel("Altitude (m)")
-    plt.grid(True)
-    st.pyplot(plt)
+    csv = df.to_csv(index=False).encode()
+    st.download_button("Télécharger résultats (CSV)", csv, "segments.csv")
