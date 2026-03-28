@@ -92,6 +92,14 @@ if uploaded_file:
     # TABLEAU DANS EXPANDER (TT-1)
     # -------------------------
     with st.expander("📊 Tableau détaillé des segments"):
+        
+        def format_h_m(x):
+            h = int(x)
+            m = int((x - h) * 60)
+            return f"{h}h {m:02d}min"
+        
+        df["Durée"] = df["Durée_h"].apply(format_h_m)
+
         styled = style_table(df_segments)
         st.write(styled.to_html(), unsafe_allow_html=True)
 
