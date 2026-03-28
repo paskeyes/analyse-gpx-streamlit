@@ -5,7 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # -----------------------------------------------------------
-# PARAMÈTRES
+# PARAMÈTRES DE PENTE (fixes)
 # -----------------------------------------------------------
 tolerances = {
     'plat': (-1, 1),
@@ -15,12 +15,33 @@ tolerances = {
     'forte_descente': (-100, -5)
 }
 
+# -----------------------------------------------------------
+# INTERFACE UTILISATEUR : PARAMÈTRES MANUELS
+# -----------------------------------------------------------
+
+st.sidebar.header("⚙️ Paramètres personnalisables")
+
 params = {
-    'petite_montee_vam': 800,
-    'forte_montee_vam': 700,
-    'plat_speed': 27,
-    'petite_descente_speed': 30,
-    'forte_descente_speed': 40
+    'plat_speed': st.sidebar.number_input(
+        "Vitesse moyenne sur plat (km/h)",
+        min_value=1.0, max_value=80.0, value=27.0, step=0.5
+    ),
+    'petite_montee_vam': st.sidebar.number_input(
+        "VAM petite montée (m/h)",
+        min_value=100.0, max_value=3000.0, value=800.0, step=10.0
+    ),
+    'forte_montee_vam': st.sidebar.number_input(
+        "VAM forte montée (m/h)",
+        min_value=100.0, max_value=3000.0, value=700.0, step=10.0
+    ),
+    'petite_descente_speed': st.sidebar.number_input(
+        "Vitesse petite descente (km/h)",
+        min_value=1.0, max_value=120.0, value=30.0, step=1.0
+    ),
+    'forte_descente_speed': st.sidebar.number_input(
+        "Vitesse forte descente (km/h)",
+        min_value=1.0, max_value=150.0, value=40.0, step=1.0
+    )
 }
 
 # -----------------------------------------------------------
@@ -56,7 +77,6 @@ def analyze_gpx(file):
         'forte_descente': {'dist': 0, 'd-': 0}
     }
 
-    # On récupère la liste de points (tracks ou routes)
     if gpx.tracks:
         points = []
         for track in gpx.tracks:
@@ -67,8 +87,6 @@ def analyze_gpx(file):
     else:
         points = gpx.waypoints
 
-    # Analyse des segments
-    distances = []
     altitudes = []
 
     for i in range(1, len(points)):
@@ -78,7 +96,6 @@ def analyze_gpx(file):
         elev_diff = (p2.elevation or 0) - (p1.elevation or 0)
         pct = (elev_diff / dist_m * 100) if dist_m > 0 else 0
 
-        distances.append(dist_m)
         altitudes.append(p2.elevation)
 
         category = classify_segment(pct)
@@ -106,31 +123,21 @@ def estimate_time(segments):
     t += (segments['forte_montee']['d+']) / params['forte_montee_vam']
     t += (segments['petite_descente']['dist']/1000) / params['petite_descente_speed']
     t += (segments['forte_descente']['dist']/1000) / params['forte_descente_speed']
-    return t  # heures
+    return t
 
 # -----------------------------------------------------------
-# WEB APP STREAMLIT
+# INTERFACE PRINCIPALE
 # -----------------------------------------------------------
 
-st.title("🚴 Analyse complète d’un fichier GPX")
-st.write("Upload ton GPX, et l’app fera :")
-st.markdown("""
-✅ Découpage par pente (plat / montées / descentes)  
-✅ Distances, D+, D−  
-✅ Durées segmentées  
-✅ Durée totale  
-✅ Graphique altimétrique  
-""")
+st.title("🚴 Analyse complète d’un fichier GPX — Paramètres personnalisables")
 
-# Upload GPX
-uploaded_file = st.file_uploader("📂 Choisis un fichier GPX", type=["gpx"])
+uploaded_file = st.file_uploader("📂 Choisissez un fichier GPX", type=["gpx"])
 
 if uploaded_file:
-    st.success("✅ Fichier chargé !")
+    st.success("✅ Fichier chargé")
 
     segments, altitudes = analyze_gpx(uploaded_file)
 
-    # Tableau
     rows = []
     total_dist_km = 0
     total_dplus = 0
@@ -141,7 +148,7 @@ if uploaded_file:
 
         dist_km = data["dist"] / 1000
 
-        # Durée
+        # Durée selon type
         if "montee" in seg_type:
             dplus = data.get("d+", 0)
             if seg_type == "petite_montee":
@@ -179,7 +186,7 @@ if uploaded_file:
         "Distance (km)": f"{total_dist_km:.2f}",
         "D+ (m)": f"{total_dplus}",
         "D- (m)": f"{total_dminus}",
-        "Durée (min)": f"{tot_h}h {tot_m}min"
+        "Durée": f"{tot_h}h {tot_m}min"
     })
 
     df = pd.DataFrame(rows)
@@ -197,7 +204,6 @@ if uploaded_file:
 
     # Graphique altimétrique
     st.subheader("📈 Profil altimétrique")
-
     plt.figure(figsize=(10,4))
     plt.plot(altitudes)
     plt.xlabel("Points")
