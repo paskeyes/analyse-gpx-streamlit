@@ -60,9 +60,13 @@ def parse_gpx_and_compute(uploaded_file, params):
                         seg_stats[cat]["d+"] += dalt
                     else:
                         seg_stats[cat]["d-"] += dalt
-
-                    profile.append({"dist_km": total_dist/1000,
-                                    "alt": pt.elevation})
+                    
+                    profile.append({
+                        "dist_km": total_dist/1000,
+                        "alt": pt.elevation,
+                        "lat": pt.latitude,
+                        "lon": pt.longitude
+                    })
 
                 prev = pt
 
