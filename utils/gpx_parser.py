@@ -1,8 +1,12 @@
 import gpxpy
+import numpy as np
 import pandas as pd
 import math
+from scipy.signal import savgol_filter
 
-# Classification thresholds
+# -----------------------------------------------------------
+# SEUILS DE CLASSIFICATION (pentes)
+# -----------------------------------------------------------
 TOL = {
     "plat": (-1, 1),
     "petite_montee": (1, 5),
@@ -11,6 +15,9 @@ TOL = {
     "forte_descente": (-999, -5),
 }
 
+# -----------------------------------------------------------
+# DISTANCE HAVERSINE (mètres)
+# -----------------------------------------------------------
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371000
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
@@ -19,91 +26,143 @@ def haversine(lat1, lon1, lat2, lon2):
     a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlam/2)**2
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
+# -----------------------------------------------------------
+# CLASSIFICATION SELON PENTE (%)
+# -----------------------------------------------------------
 def classify(pct):
-    for k,(lo,hi) in TOL.items():
+    for k, (lo, hi) in TOL.items():
         if lo <= pct <= hi:
             return k
     return "plat"
 
+# -----------------------------------------------------------
+# FIX ALTITUDES : interpolation + lissage + anti-outliers
+# -----------------------------------------------------------
+def fix_altitude_series(alts):
+    alts = pd.Series(alts, dtype="float")
+
+    # 1) Remplacer None par NaN
+    alts.replace({None: np.nan}, inplace=True)
+
+    # 2) Interpolation linéaire
+    alts = alts.interpolate(method="linear", limit_direction="both")
+
+    # 3) Anti-outliers (écarts > 25m)
+    diffs = alts.diff().abs()
+    mask = diffs > 25
+    alts[mask] = np.nan
+    alts = alts.interpolate()
+
+    # 4) Lissage Savitzky-Golay
+    if len(alts) >= 9:
+        alts = savgol_filter(alts, window_length=9, polyorder=3)
+
+    return alts.tolist()
+
+# -----------------------------------------------------------
+# PARSE GPX + CALCUL COMPLET
+# -----------------------------------------------------------
 def parse_gpx_and_compute(uploaded_file, params):
 
     gpx = gpxpy.parse(uploaded_file)
 
+    # Récupération des points
+    points = []
+    if gpx.tracks:
+        for track in gpx.tracks:
+            for seg in track.segments:
+                points.extend(seg.points)
+    elif gpx.routes:
+        points.extend(gpx.routes[0].points)
+    elif gpx.waypoints:
+        points.extend(gpx.waypoints)
+
+    if len(points) < 2:
+        return pd.DataFrame(), pd.DataFrame(), {}
+
+    # EXTRACTION ALTITUDES POUR FIX
+    raw_alts = [p.elevation for p in points]
+    fixed_alts = fix_altitude_series(raw_alts)
+
+    # RÉÉCRITURE DES ALTITUDES FIXÉES
+    for i, p in enumerate(points):
+        p.elevation = fixed_alts[i]
+
+    # -----------------------------------------------------------
+    # CALCUL DES SEGMENTS
+    # -----------------------------------------------------------
     seg_stats = {
-        k: {"dist":0, "d+":0, "d-":0, "dur":0}
+        k: {"dist": 0, "d+": 0, "d-": 0, "dur": 0}
         for k in TOL.keys()
     }
 
     profile = []
-    prev = None
     total_dist = 0
 
-    # Parse tracks
-    for track in gpx.tracks:
-        for seg in track.segments:
-            for pt in seg.points:
+    for i in range(1, len(points)):
+        p1 = points[i-1]
+        p2 = points[i]
 
-                if prev:
-                    dist = haversine(prev.latitude, prev.longitude, pt.latitude, pt.longitude)
-                    if dist < 0.5:   # Ignore GPS noise
-                        prev = pt
-                        continue
+        # Distance horizontale
+        dist = haversine(p1.latitude, p1.longitude, p2.latitude, p2.longitude)
+        if dist < 0.5:  # bruit GPS
+            continue
 
-                    total_dist += dist
-                    dalt = (pt.elevation or 0) - (prev.elevation or 0)
-                    
-                    # noise filter
-                    if abs(dalt) < 1:
-                        dalt = 0
+        total_dist += dist
 
-                    pct = (dalt / dist * 100) if dist > 0 else 0
-                    cat = classify(pct)
+        dalt = p2.elevation - p1.elevation
+        pct = (dalt / dist) * 100 if dist > 0 else 0
+        cat = classify(pct)
 
-                    # accumulate distance
-                    seg_stats[cat]["dist"] += dist
-                    
-                    # accumulate elevation ONLY if not flat
-                    if cat != "plat":
-                        if dalt > 0:
-                            seg_stats[cat]["d+"] += dalt
-                        else:
-                            seg_stats[cat]["d-"] += dalt
-                    
-                    profile.append({
-                        "dist_km": total_dist/1000,
-                        "alt": pt.elevation,
-                        "lat": pt.latitude,
-                        "lon": pt.longitude
-                    })
+        # Accumulation
+        seg_stats[cat]["dist"] += dist
+        if cat != "plat":
+            if dalt > 0:
+                seg_stats[cat]["d+"] += dalt
+            else:
+                seg_stats[cat]["d-"] += dalt
 
-                prev = pt
+        profile.append({
+            "dist_km": total_dist / 1000,
+            "alt": p2.elevation,
+            "lat": p2.latitude,
+            "lon": p2.longitude,
+            "pct": pct
+        })
 
-    # Compute durations
-    for k,v in seg_stats.items():
+    # -----------------------------------------------------------
+    # DURÉES (heures)
+    # -----------------------------------------------------------
+    for k, v in seg_stats.items():
         if k == "plat":
-            v["dur"] = (v["dist"]/1000) / params["plat_speed"]
+            v["dur"] = (v["dist"] / 1000) / params["plat_speed"]
         elif k == "petite_descente":
-            v["dur"] = (v["dist"]/1000) / params["petite_descente_speed"]
+            v["dur"] = (v["dist"] / 1000) / params["petite_descente_speed"]
         elif k == "forte_descente":
-            v["dur"] = (v["dist"]/1000) / params["forte_descente_speed"]
+            v["dur"] = (v["dist"] / 1000) / params["forte_descente_speed"]
         elif k == "petite_montee":
             v["dur"] = v["d+"] / params["petite_montee_vam"]
         elif k == "forte_montee":
             v["dur"] = v["d+"] / params["forte_montee_vam"]
 
-    # ✅ FIX : dictionnaire correctement fermé
+    # -----------------------------------------------------------
+    # DATAFRAME DES SEGMENTS
+    # -----------------------------------------------------------
     df = pd.DataFrame([
         {
             "Type": k,
-            "Distance_km": v["dist"]/1000,
+            "Distance_km": v["dist"] / 1000,
             "D+": v["d+"],
             "D-": v["d-"],
-            "Durée": v["dur"]    # durée brute (float)
+            "Durée": v["dur"],
+            "Durée_raw": v["dur"]
         }
-        for k,v in seg_stats.items()
+        for k, v in seg_stats.items()
     ])
 
-    # summary
+    # -----------------------------------------------------------
+    # RÉSUMÉ GLOBAL
+    # -----------------------------------------------------------
     tot_dist = df["Distance_km"].sum()
     tot_dplus = df["D+"].sum()
     tot_dur = df["Durée"].sum()
@@ -115,9 +174,9 @@ def parse_gpx_and_compute(uploaded_file, params):
     profile_df = pd.DataFrame(profile)
 
     summary_text = (
-        f"✅ Votre parcours fait **{tot_dist:.1f} km**  \n"
-        f"✅ Dénivelé positif **{tot_dplus:.0f} m**  \n"
-        f"⏱️ Temps estimé : **{h_str}**"
+        f"✅ Distance totale : **{tot_dist:.1f} km**  \n"
+        f"✅ Dénivelé positif : **{tot_dplus:.0f} m**  \n"
+        f"⏱️ Temps estimé total : **{h_str}**"
     )
 
     return df, profile_df, {
