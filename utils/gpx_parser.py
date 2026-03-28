@@ -88,14 +88,14 @@ def parse_gpx_and_compute(uploaded_file, params):
          "Distance_km": v["dist"]/1000,
          "D+": v["d+"],
          "D-": v["d-"],
-         "Durée_h": v["dur"]}
+         "Durée": v["dur"]   # ← garder durée brute en heures
         for k,v in seg_stats.items()
     ])
 
     # summary
     tot_dist = df["Distance_km"].sum()
     tot_dplus = df["D+"].sum()
-    tot_dur = df["Durée_h"].sum()
+    tot_dur = df["Durée"].sum()
 
     h = int(tot_dur)
     m = int((tot_dur - h) * 60)
