@@ -22,7 +22,7 @@ def style_table(df):
 
     def color_row(row):
         if row["Type"] == "TOTAL":
-            return ["background-color: #dddddd; font-weight: bold"] * len(row)
+            return ["background-color: #dddddd; color: black; font-weight: bold"] * len(row)
         if row["Type"] in COLORS:
             return [f"background-color: {COLORS[row['Type']]}; color: black"] * len(row)
         return [""] * len(row)
