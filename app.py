@@ -131,6 +131,16 @@ def estimate_time(segments):
 
 st.title("🚴 Analyse complète d’un fichier GPX — Paramètres personnalisables")
 
+# ✅ AJOUT : affichage des types de segments
+st.subheader("📐 Types de segments et intervalles de pente")
+st.markdown(f"""
+**Plat** : {tolerances['plat'][0]}% → +{tolerances['plat'][1]}%  
+**Petite montée** : +{tolerances['petite_montee'][0]}% → +{tolerances['petite_montee'][1]}%  
+**Forte montée** : +{tolerances['forte_montee'][0]}% → +∞%  
+**Petite descente** : {tolerances['petite_descente'][0]}% → {tolerances['petite_descente'][1]}%  
+**Forte descente** : -∞% → {tolerances['forte_descente'][1]}%  
+""")
+
 uploaded_file = st.file_uploader("📂 Choisissez un fichier GPX", type=["gpx"])
 
 if uploaded_file:
