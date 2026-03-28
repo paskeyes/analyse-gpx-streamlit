@@ -101,7 +101,7 @@ if uploaded_file:
         # Ajout de la colonne Durée en HhMM
         df_segments = df_segments.copy()  # éviter vue pandas
         
-        df_segments["Durée"] = df_segments["Durée_h"].apply(format_h_m)
+        df_segments["Durée"] = df_segments["Durée"].apply(format_h_m)
         
         styled = style_table(df_segments)
         st.write(styled.to_html(), unsafe_allow_html=True)
