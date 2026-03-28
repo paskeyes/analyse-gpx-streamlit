@@ -10,6 +10,8 @@ COLORS = {
 
 def style_table(df):
     df2 = df.copy()
+
+    # Ajout de TOTAL
     df2.loc["TOTAL"] = [
         "TOTAL",
         df2["Distance_km"].sum(),
@@ -19,11 +21,20 @@ def style_table(df):
     ]
 
     def color_row(row):
-        t = row["Type"]
-        if t == "TOTAL":
-            return ["background-color: #ddd; font-weight: bold"] * len(row)
-        if t in COLORS:
-            return [f"background-color: {COLORS[t]}; color: black"] * len(row)
+        if row["Type"] == "TOTAL":
+            return ["background-color: #dddddd; font-weight: bold"] * len(row)
+        if row["Type"] in COLORS:
+            return [f"background-color: {COLORS[row['Type']]}; color: black"] * len(row)
         return [""] * len(row)
 
-    return df2.style.apply(color_row, axis=1).set_precision(2)
+    styler = df2.style.apply(color_row, axis=1)
+
+    # ✅ Remplace set_precision (incompatible)
+    styler = styler.format({
+        "Distance_km": "{:.2f}",
+        "D+": "{:.2f}",
+        "D-": "{:.2f}",
+        "Durée_h": "{:.3f}"
+    })
+
+    return styler
