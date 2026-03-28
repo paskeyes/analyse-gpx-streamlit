@@ -51,6 +51,11 @@ def parse_gpx_and_compute(uploaded_file, params):
 
                     total_dist += dist
                     dalt = (pt.elevation or 0) - (prev.elevation or 0)
+                    
+                    # noise filter
+                    if abs(dalt) < 1:
+                        dalt = 0
+
                     pct = (dalt / dist * 100) if dist > 0 else 0
                     cat = classify(pct)
 
