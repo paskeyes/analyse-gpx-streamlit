@@ -145,7 +145,7 @@ def parse_fit_and_compute(uploaded_file):
         dist = haversine(prev["lat"], prev["lon"], pt["lat"], pt["lon"])
 
         # FIT sampling = 1 Hz → ignorer seulement < 0.15 m//modifié à 0.1
-        if dist < 0.1:
+        if dist < 0.15:
             prev = pt
             continue
 
