@@ -1,5 +1,6 @@
 streamlit
 gpxpy
+fitparse
 pandas
 matplotlib
 numpy
