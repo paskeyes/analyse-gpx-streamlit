@@ -1,15 +1,113 @@
+/* ===========================================
+   STYLE GLOBAL APP GPX + FIT
+   =========================================== */
+
+/* Police plus lisible */
 body {
-    font-family: "Inter", sans-serif;
+    font-family: "Inter", "Segoe UI", sans-serif;
+    color: #000000;
 }
 
+/* Centre les éléments, sans trop de marge */
 .block-container {
-    padding-top: 1rem;
+    padding-top: 1rem !important;
+    padding-left: 1.2rem !important;
+    padding-right: 1.2rem !important;
 }
 
-h1, h2, h3 {
+/* Amélioration lisibilité des titres */
+h1, h2, h3, h4 {
     font-weight: 700;
 }
 
+/* ================================
+   TABLEAUX (Pandas Styler)
+   ================================ */
+
+/* Tableau en pleine largeur */
 table {
+    width: 100% !important;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+}
+
+/* Ligne survolée */
+tbody tr:hover {
+    background-color: #f1f5f9 !important;
+}
+
+/* Bordures douces */
+table, th, td {
+    border: 1px solid #d7dce1 !important;
+}
+
+/* Cellules */
+td {
+    padding: 6px 8px !important;
+}
+
+/* En-têtes */
+th {
+    background-color: #f0f4f8 !important;
+    font-weight: bold !important;
+    padding: 8px !important;
+}
+
+/* ================================
+   METRICS (Distance, D+, Temps)
+   ================================ */
+
+.css-1xarl3l, .css-12ttj6m, .stMetric {
+    font-size: 1rem !important;
+}
+
+/* ================================
+   EXPANDERS
+   ================================ */
+
+.streamlit-expanderHeader {
+    font-weight: 600;
     font-size: 1.1rem;
 }
+
+/* ================================
+   CARTE FOLIUM
+   ================================ */
+
+iframe {
+    border-radius: 12px;
+}
+
+/* ================================
+   MOBILE OPTIMISATION
+   ================================ */
+
+@media (max-width: 800px) {
+
+    .block-container {
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+    }
+
+    table {
+        font-size: 0.85rem !important;
+    }
+
+    th, td {
+        padding: 4px 5px !important;
+    }
+
+    h1 {
+        font-size: 1.5rem !important;
+    }
+
+    h2 {
+        font-size: 1.3rem !important;
+    }
+
+    h3 {
+        font-size: 1.1rem !important;
+    }
+}
+
+/* Fin du fichier styles.css */
