@@ -143,13 +143,13 @@ def parse_fit_and_compute(uploaded_file):
         dist = haversine(prev["lat"], prev["lon"], pt["lat"], pt["lon"])
 
         # Filtrage micro‐distance
-        if dist < 0.5:
+        if dist < 0.05:
             prev = pt
             continue
 
         # Variation altitude
         dalt = pt["alt"] - prev["alt"]
-        if abs(dalt) < 0.5:   # FIT = pas de bruit >0.3 m → seuil idéal 0.5
+        if abs(dalt) < 0.02:   # FIT = pas de bruit >0.3 m → seuil idéal 0.5
             dalt = 0
 
         total_dist += dist
