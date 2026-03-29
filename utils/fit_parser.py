@@ -110,7 +110,7 @@ def parse_fit_and_compute(uploaded_file):
                 dalt = 0
             else:
                 dalt = alt - prev["alt"]
-                if abs(dalt) < 3:
+                if abs(dalt) < 2:
                     dalt = 0
 
             total_dist += dist
