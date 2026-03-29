@@ -193,7 +193,8 @@ def parse_fit_and_compute(uploaded_file):
             "dist_km": total_dist / 1000,
             "alt": pt["alt"],
             "lat": pt["lat"],
-            "lon": pt["lon"]
+            "lon": pt["lon"],
+            "pct": pc
         })
 
         prev = pt
