@@ -1,111 +1,84 @@
-✅ README.md — Analyse GPX & Estimation du Temps
-🚴 Analyse GPX — Web App Streamlit
-Analyse complète de fichiers GPX : distances, dénivelés, segmentation des pentes, estimation de temps, carte interactive & profil altimétrique.
-Cette application permet d’analyser n’importe quel fichier GPX de parcours vélo, running, trail ou randonnée, d’en extraire les segments par pente, de calculer les temps estimés selon vos paramètres personnels, et d’afficher une carte et un profil altimétrique interactif.
+# 🚴 Application d’analyse GPX & FIT
+### *Prédiction de temps sur parcours + analyse avancée des sorties réelles*
 
-⭐ Fonctionnalités principales
-✅ Analyse GPX robuste
+Cette application Streamlit permet :
 
-Interpolation des altitudes manquantes
-Lissage Savitzky–Golay
-Anti-outliers
-Pente calculée via distance haversine (fiable)
-Segmentation en 5 types :
+✅ **Mode 1 – Estimation GPX**  
+– Analyse un fichier GPX (OpenRunner, Komoot, Garmin…)  
+– Segmente automatiquement le parcours : plat, montées, descentes  
+– Calcule : distances, D+, D−, VAM, vitesse estimée  
+– Produit une **prévision réaliste du temps total**  
+– Affiche :  
+  • tableau synthétique  
+  • profil altimétrique  
+  • carte Folium colorée par pente  
 
-Plat (−1% à +1%)
-Petite montée (+1% à +5%)
-Forte montée (> +5%)
-Petite descente (−5% à −1%)
-Forte descente (< −5%)
+✅ **Mode 2 – Analyse FIT (sortie réelle)**  
+– Analyse un fichier FIT d’une activité réelle (Garmin, Wahoo, Hammerhead, Zwift…)  
+– Segmente selon les mêmes règles de pente qu’en GPX  
+– Calcule :  
+  • vitesse moyenne (km/h)  
+  • VAM (m/h)  
+  • cadence moyenne (rpm)  
+  • fréquence cardiaque moyenne (bpm)  
+  • puissance moyenne (W)  
+  • équilibre droite/gauche (%, 1 décimale)  
+– Affiche :  
+  • tableau complet par type de segment  
+  • profil altimétrique  
+  • carte Folium colorée par pente  
 
+---
 
+# ✅ 1. Fonctionnalités en détail
 
-✅ Estimation du temps personnalisée
-Vous pouvez ajuster dans la sidebar :
+## 🔵 Mode GPX – Estimation d’un parcours
+- Analyse point‑à‑point du fichier GPX  
+- Filtrage du bruit GPS :  
+  • déplacements < 0,5 m ignorés  
+  • variations alt < 1 m ignorées  
+- Classification selon la pente (%) :
+  - **Plat** : -1 → +1  
+  - **Petite montée** : +1 → +5  
+  - **Forte montée** : > +5  
+  - **Petite descente** : -1 → -5  
+  - **Forte descente** : < -5  
+- Calcul de :  
+  • D+, D−  
+  • distances segmentées  
+  • temps estimés selon vitesse/VAM configurables  
+- Affichage :  
+  • tableau stylé coloré  
+  • carte Folium  
+  • profil altitude  
 
-Vitesse sur plat
-Vitesse en petite descente
-Vitesse en forte descente
-VAM petite montée (m/h)
-VAM forte montée (m/h)
-✅ Un bouton permet de sauvegarder vos paramètres (persistance session Streamlit).
-✅ Un bouton permet de les réinitialiser.
+---
 
-✅ Visualisations avancées
+## 🔵 Mode FIT – Analyse d’une sortie réelle
+- Extraction directe des données FIT :  
+  • position  
+  • altitude  
+  • vitesse  
+  • cadence  
+  • fréquence cardiaque  
+  • puissance  
+  • left/right balance  
+- Même classification par pente que pour GPX  
+- Calcul de métriques par segment :  
+  • distance  
+  • D+ / D−  
+  • temps  
+  • vitesse moyenne  
+  • VAM (montées uniquement)  
+  • cadence moyenne  
+  • FC moyenne  
+  • puissance moyenne  
+  • équilibre droite/gauche  
+- Affichage :  
+  • tableau stylé  
+  • carte interactive  
+  • profil altitude  
 
-Profil altimétrique Plotly (interactif, zoom, couleur par pente)
-Carte Folium colorée par pente (%)
-Tableau stylé coloré selon le type de segment
-Résumé automatique intelligent
+---
 
-✅ Fonctionnement 100% mobile
-L’app est optimisée pour :
-
-smartphone
-usage depuis WhatsApp
-écrans étroits
-thèmes Streamlit modernes
-
-✅ Sécurité
-Un mot de passe protège l’accès (géré via la section Secrets de Streamlit Cloud).
-
-🎯 Exemple de sortie
-
-Distance totale : XX.X km
-D+ total : XXX m
-Temps estimé : XhXX
-Tableau segmenté : plat / montées / descentes
-Carte interactive du parcours
-Profil altimétrique coloré
-
-
-📁 Structure du projet
-📦 project/
- ├── app.py
- ├── requirements.txt
- └── utils/
-      ├── gpx_parser.py
-      ├── map_tools.py
-      └── styling.py
-
-app.py
-Interface principale Streamlit
-(Upload GPX → analyse → affichage tableau + carte + profil)
-utils/gpx_parser.py
-
-Lecture GPX
-Interpolation & lissage altitudes
-Filtre anti‑noise
-Segmentation par pente
-Résumé automatique
-Construction du profile_df
-
-utils/map_tools.py
-
-Carte Folium
-Segments colorés selon pente
-Légende dynamique
-
-utils/styling.py
-
-Mise en forme du tableau
-Coloration selon type de segment
-Ligne TOTAL stylée
-
-
-🚀 Déploiement sur Streamlit Cloud
-
-Créer un repository (public ou privé) sur GitHub
-Ajouter :
-
-app.py
-utils/
-requirements.txt
-README.md
-
-
-Aller sur https://streamlit.io/cloud
-Connecter votre GitHub
-Cliquer New app
-Sélectionner app.py
-Déployer 🚀
+# ✅ 2. Architecture du projet
