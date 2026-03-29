@@ -12,9 +12,6 @@ TOL = {
 }
 
 def haversine(lat1, lon1, lat2, lon2):
-    """
-    Distance entre deux points GPS (mètres)
-    """
     R = 6371000
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
@@ -35,19 +32,14 @@ def classify(pct):
         return "forte_descente"
     return "plat"
 
+
 def parse_gpx_and_compute(uploaded_file, params):
-    """
-    Analyse GPX :
-    - segmentation par pente
-    - distance, D+/D-, temps
-    - calcul VAM
-    """
 
     gpx = gpxpy.parse(uploaded_file)
 
     # accumulateurs
     stats = {
-        k: {"dist": 0, "d+": 0, "d-": 0, "time": 0}
+        k: {"dist": 0, "d+": 0, "d-": 0}
         for k in TOL.keys()
     }
 
@@ -61,12 +53,11 @@ def parse_gpx_and_compute(uploaded_file, params):
             for pt in seg.points:
 
                 if prev:
-                    # distance horizontale
+
                     dist = haversine(prev.latitude, prev.longitude,
                                      pt.latitude, pt.longitude)
 
-                    # micro-déplacements ignorés
-                    if dist < 2:
+                    if dist < 2:  # filtrage GPS
                         prev = pt
                         continue
 
@@ -75,22 +66,10 @@ def parse_gpx_and_compute(uploaded_file, params):
                         dalt = 0
                     else:
                         dalt = pt.elevation - prev.elevation
-
-                        # filtrage bruit altitude
                         if abs(dalt) < 1.8:
                             dalt = 0
 
                     total_dist += dist
-
-                    # temps entre points
-                    if pt.time and prev.time:
-                        dt = (pt.time - prev.time).total_seconds()
-                    else:
-                        dt = 0
-
-                    if dt <= 0:
-                        prev = pt
-                        continue
 
                     # pente
                     pct = (dalt / dist * 100) if dist > 0 else 0
@@ -98,9 +77,6 @@ def parse_gpx_and_compute(uploaded_file, params):
 
                     # accumulations
                     stats[cat]["dist"] += dist
-                    stats[cat]["time"] += dt
-
-                    # D+ & D‑ uniquement hors plat
                     if cat != "plat":
                         if dalt > 0:
                             stats[cat]["d+"] += dalt
@@ -118,28 +94,47 @@ def parse_gpx_and_compute(uploaded_file, params):
 
                 prev = pt
 
-    # Construction du tableau final
+    # --------------------------
+    # Construction du tableau
+    # --------------------------
     rows = []
     for k, v in stats.items():
-        time_h = v["time"] / 3600 if v["time"] > 0 else 0
 
-        # VAM uniquement en montée
+        dist_km = v["dist"] / 1000
         dplus = v["d+"]
-        if k in ["petite_montee", "forte_montee"] and time_h > 0:
-            vam = dplus / time_h
+
+        # ✅ Calcul du temps estimé basé sur paramètres utilisateur
+        if k == "plat":
+            time_h = dist_km / params["plat_speed"]
+        elif k == "petite_descente":
+            time_h = dist_km / params["petite_descente_speed"]
+        elif k == "forte_descente":
+            time_h = dist_km / params["forte_descente_speed"]
+        elif k == "petite_montee":
+            time_h = dplus / params["petite_montee_vam"]
+        elif k == "forte_montee":
+            time_h = dplus / params["forte_montee_vam"]
         else:
-            vam = 0
+            time_h = 0
 
         rows.append({
             "Type": k,
-            "Distance_km": v["dist"] / 1000,
-            "D+": v["d+"],
+            "Distance_km": dist_km,
+            "D+": dplus,
             "D-": v["d-"],
-            "Temps_h": time_h,
-            "VAM_mh": round(vam, 1)   # cohérence FIT
+            "Temps_h": time_h
         })
 
     df = pd.DataFrame(rows)
+
+    # ✅ Durée formatée Hh MMmin
+    def format_hm(hours):
+        h = int(hours)
+        m = int(round((hours - h) * 60))
+        return f"{h}h {m:02d}min"
+
+    df["Durée"] = df["Temps_h"].apply(format_hm)
+
     profile_df = pd.DataFrame(profile)
 
     # Résumé Global
@@ -147,6 +142,7 @@ def parse_gpx_and_compute(uploaded_file, params):
     tot_dplus = df["D+"].sum()
     tot_time_h = df["Temps_h"].sum()
 
+    # Format résumé
     h = int(tot_time_h)
     m = int((tot_time_h - h) * 60)
     h_str = f"{h}h{m:02d}"
