@@ -23,11 +23,12 @@ def haversine(lat1, lon1, lat2, lon2):
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 def classify(pct):
-    """
-    Catégorie de pente
-    """
     for k, (lo, hi) in TOL.items():
-        if lo <= pct <= hi:
+        # cas plat = on autorise les deux côtés
+        if k == "plat" and lo <= pct <= hi:
+            return k
+        # pour les autres : éviter le chevauchement
+        if lo < pct <= hi:
             return k
     return "plat"
 
