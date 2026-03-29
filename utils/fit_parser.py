@@ -22,15 +22,20 @@ def haversine(lat1, lon1, lat2, lon2):
     a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlam/2)**2
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
+
 def classify(pct):
-    for k, (lo, hi) in TOL.items():
-        # cas plat = on autorise les deux côtés
-        if k == "plat" and lo <= pct <= hi:
-            return k
-        # pour les autres : éviter le chevauchement
-        if lo < pct <= hi:
-            return k
+    if -1 <= pct <= 1:
+        return "plat"
+    if 1 < pct <= 5:
+        return "petite_montee"
+    if pct > 5:
+        return "forte_montee"
+    if -5 <= pct < -1:
+        return "petite_descente"
+    if pct < -5:
+        return "forte_descente"
     return "plat"
+
 
 def parse_fit_and_compute(uploaded_file):
     """
@@ -110,7 +115,7 @@ def parse_fit_and_compute(uploaded_file):
                 dalt = 0
             else:
                 dalt = alt - prev["alt"]
-                if abs(dalt) < 1.8:
+                if abs(dalt) < 0.5:
                     dalt = 0
 
             total_dist += dist
