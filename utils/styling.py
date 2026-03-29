@@ -11,91 +11,81 @@ COLORS = {
 
 def style_table(df):
     """
-    Style un tableau pour GPX ou FIT :
-    - Ajoute colonne Durée formatée HhMM
-    - Ajoute ligne TOTAL
-    - Applique coloration par type
-    - Formate les colonnes numériques (2 ou 1 décimales)
+    Style un tableau GPX ou FIT :
+    ✅ n'utilise jamais Temps_h (car toujours supprimé dans df_display)
+    ✅ ajoute une ligne TOTAL cohérente selon les colonnes présentes
+    ✅ coloration par type
+    ✅ formatage propre
     """
 
-    # Copie de sécurité
     df2 = df.copy()
 
-    # ✅ Durée_formatée (à partir de Temps_h)
-    def format_h_m(val):
-        if isinstance(val, str):
-            return val  # déjà formaté
-        h = int(val)
-        m = int((val - h) * 60)
-        return f"{h}h {m:02d}min"
-
-    # Toujours créer la colonne Durée
-    if "Temps_h" in df2.columns:
-        df2["Durée"] = df2["Temps_h"].apply(format_h_m)
-    else:
-        df2["Durée"] = ""
-
-    # ✅ Ligne TOTAL — calcul dynamique selon les colonnes réellement présentes
+    # ----------------------------------------------------------
+    # ✅ Construction de la ligne TOTAL en fonction des colonnes présentes
+    # ----------------------------------------------------------
     total_row = []
+
     for col in df2.columns:
 
         if col == "Type":
             total_row.append("TOTAL")
 
-        elif col in ["Distance_km", "D+", "D-", "Temps_h"]:
+        elif col in ["Distance_km", "D+", "D-", "Vitesse_kmh", "VAM_mh"]:
             total_row.append(df2[col].astype(float).sum())
 
-        elif col in ["Vitesse_kmh", "VAM_mh", "Cadence", "FC", "Puissance", "Equilibre_DG"]:
-            # moyenne simple
+        elif col in ["Cadence", "FC", "Puissance", "Equilibre_DG"]:
             total_row.append(df2[col].astype(float).mean() if df2[col].count() > 0 else 0)
 
         elif col == "Durée":
-            # on reformate la durée totale en HhMM
-            total_row.append(format_h_m(df2["Temps_h"].sum()))
+            # Durée totale = somme convertie par le parser
+            total_row.append(df2[col][:-1].tolist() + [df2[col].iloc[-1]]) 
+            # mais comme Durée est déjà dans df2, on mettra juste TOTAL à la fin
+            total_row[-1] = ""   # laissé vide pour éviter incohérences
 
         else:
             total_row.append("")
 
-    # Ajout ligne TOTAL
     df2.loc["TOTAL"] = total_row
 
-    # ✅ Coloration par ligne
+    # ----------------------------------------------------------
+    # ✅ Coloration par type
+    # ----------------------------------------------------------
     def color_row(row):
         if row["Type"] == "TOTAL":
-            return ["background-color: #dddddd; color: black; font-weight: bold"] * len(row)
+            return ["background-color:#dddddd; color:black; font-weight:bold"] * len(row)
 
         t = row["Type"]
         if t in COLORS:
-            return [f"background-color: {COLORS[t]}; color: black"] * len(row)
+            return [f"background-color:{COLORS[t]}; color:black"] * len(row)
 
         return [""] * len(row)
 
     styler = df2.style.apply(color_row, axis=1)
 
-    # ✅ Format numérique selon les colonnes existantes
-    format_dict = {}
+    # ----------------------------------------------------------
+    # ✅ Formatage
+    # ----------------------------------------------------------
+    fmt = {}
 
     if "Distance_km" in df2:
-        format_dict["Distance_km"] = "{:.2f}"
+        fmt["Distance_km"] = "{:.2f}"
     if "D+" in df2:
-        format_dict["D+"] = "{:.0f}"
+        fmt["D+"] = "{:.0f}"
     if "D-" in df2:
-        format_dict["D-"] = "{:.0f}"
-    if "Temps_h" in df2:
-        format_dict["Temps_h"] = "{:.3f}"
+        fmt["D-"] = "{:.0f}"
     if "Vitesse_kmh" in df2:
-        format_dict["Vitesse_kmh"] = "{:.2f}"
+        fmt["Vitesse_kmh"] = "{:.2f}"
     if "VAM_mh" in df2:
-        format_dict["VAM_mh"] = "{:.1f}"
+        fmt["VAM_mh"] = "{:.1f}"
     if "Cadence" in df2:
-        format_dict["Cadence"] = "{:.0f}"
+        fmt["Cadence"] = "{:.0f}"
     if "FC" in df2:
-        format_dict["FC"] = "{:.0f}"
+        fmt["FC"] = "{:.0f}"
     if "Puissance" in df2:
-        format_dict["Puissance"] = "{:.0f}"
+        fmt["Puissance"] = "{:.0f}"
     if "Equilibre_DG" in df2:
-        format_dict["Equilibre_DG"] = "{:.1f}"
+        fmt["Equilibre_DG"] = "{:.1f}"
 
-    styler = styler.format(format_dict)
+    styler = styler.format(fmt)
 
     return styler
