@@ -194,7 +194,7 @@ def parse_fit_and_compute(uploaded_file):
             "alt": pt["alt"],
             "lat": pt["lat"],
             "lon": pt["lon"],
-            "pct": pc
+            "pct": pct
         })
 
         prev = pt
