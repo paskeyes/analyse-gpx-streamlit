@@ -7,7 +7,7 @@ from utils.styling import style_table
 from streamlit_folium import st_folium
 
 # ----------------------------------------------------------
-# AUTHENTIFICATION (mot de passe géré via Streamlit Secrets)
+# AUTHENTIFICATION (mot de passe via Streamlit Secrets)
 # ----------------------------------------------------------
 
 if "authenticated" not in st.session_state:
@@ -34,14 +34,14 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-st.title("🚴 Application d'analyse GPX & FIT")
+st.title("🚴 Analyse GPX & FIT — Mode Dual")
 
 # ----------------------------------------------------------
-# MODE DE FONCTIONNEMENT
+# CHOIX DU MODE
 # ----------------------------------------------------------
 
 mode = st.radio(
-    "Choisir un mode :",
+    "Choisir un mode d’utilisation :",
     ["📍 Estimation GPX", "📈 Analyse FIT"]
 )
 
@@ -100,7 +100,7 @@ if mode == "📍 Estimation GPX":
     if uploaded_file:
         df_segments, profile, total_summary = parse_gpx_and_compute(uploaded_file, params)
 
-        # Résumé global
+        # Résumé
         st.subheader("📈 Résumé automatique")
         st.markdown(total_summary["text"])
 
@@ -109,7 +109,7 @@ if mode == "📍 Estimation GPX":
         col2.metric("Dénivelé positif", f"{total_summary['d+']:.0f} m")
         col3.metric("Temps estimé", f"{total_summary['h_str']}")
 
-        # Tableau dans expander
+        # Tableau
         with st.expander("📊 Tableau détaillé des segments"):
             styled = style_table(df_segments)
             st.write(styled.to_html(), unsafe_allow_html=True)
@@ -141,8 +141,9 @@ if mode == "📈 Analyse FIT":
 
     if uploaded_fit:
 
-        df_fit = parse_fit_and_compute(uploaded_fit)
+        df_fit, profile_fit = parse_fit_and_compute(uploaded_fit)
 
+        # Tableau FIT
         st.subheader("📊 Tableau détaillé par type de segment")
         styled = style_table(df_fit)
         st.write(styled.to_html(), unsafe_allow_html=True)
@@ -153,22 +154,11 @@ if mode == "📈 Analyse FIT":
             "analyse_fit.csv"
         )
 
-        # -----------------------
-        # Carte
-        # -----------------------
+        # Carte FIT
         with st.expander("🗺️ Carte interactive FIT"):
+            folium_map = build_map(profile_fit)
+            st_folium(folium_map, width=700, height=500)
 
-            # Il faut convertir df_fit en profil minimal lat/lon alt dist_km
-            # FIT parser ne fournit pas profil -> donc ajout
-            st.info("ℹ️ La carte FIT nécessitera un profil complet lat/lon/alt. Ajout prévu dans la version avancée.")
-            st.warning("👉 Contacte-moi si tu veux activer le profil complet FIT.")
-
-        # -----------------------
-        # Graphique altitude
-        # -----------------------
-
-        if "lat" in df_fit.columns and "lon" in df_fit.columns:
-            st.subheader("📉 Profil altimétrique")
-            st.line_chart(df_fit.set_index("dist_km")["alt"])
-        else:
-            st.info("ℹ️ Le profil altitude FIT n’est pas activé car FIT_parser ne le génère pas encore.")
+        # Profil altitude FIT
+        st.subheader("📉 Profil altimétrique")
+        st.line_chart(profile_fit.set_index("dist_km")["alt"])
