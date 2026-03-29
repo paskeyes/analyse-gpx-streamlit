@@ -93,7 +93,7 @@ Cette application Streamlit permet :
 
 ### ✅ Court terme (1–2 semaines)
 - [ ] Ajouter légende couleur sur carte
-- [ ] le calcul de durée FIT ne doit pas compter le temps où l'on est à l'arrêt (vitesse = 0)
+- [ ] le calcul de durée FIT ne doit pas compter le temps où l'on est à l'arrêt (vitesse = 0) => correction vitesse moy aussi
 - [ ] la carte doit s'ouvrir en zoomant sur l'itinéraire pour avoir la meilleure vue centrée.
 - [ ] sur les deux modes, rajouter un tableau détaillé en indiquant les montées1/2/3... ou plats ou descentes...
 - [ ] ajouter sur le FIT => la courbe de puissance en fonction des km
