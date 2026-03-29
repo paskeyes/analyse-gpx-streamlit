@@ -73,7 +73,7 @@ def parse_gpx_and_compute(uploaded_file, params):
                         dalt = pt.elevation - prev.elevation
 
                         # filtrage bruit altitude
-                        if abs(dalt) < 2.2:
+                        if abs(dalt) < 1.8:
                             dalt = 0
 
                     total_dist += dist
