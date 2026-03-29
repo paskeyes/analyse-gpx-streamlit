@@ -76,7 +76,11 @@ def parse_fit_and_compute(uploaded_file):
 
         lat = data["position_lat"] * (180.0 / 2**31)
         lon = data["position_long"] * (180.0 / 2**31)
-        alt = data.get("altitude", None)
+        
+        alt = data.get("enhanced_altitude", None)
+        if alt is None:
+            alt = data.get("altitude", None)
+        
         ts = data.get("timestamp", None)
 
         cad = data.get("cadence", None)
