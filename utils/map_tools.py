@@ -2,19 +2,34 @@ import folium
 from folium import PolyLine
 import pandas as pd
 
+#def color_by_pct(pct):
+#    """
+#    Retourne une couleur en fonction de la pente (pour GPX & FIT)
+#    """
+#    if pct < -5:
+#        return "darkgreen"
+#    if -5 <= pct < -1:
+#        return "lightgreen"
+#    if -1 <= pct <= 1:
+#        return "blue"
+#    if 1 < pct <= 5:
+#        return "orange"
+#    return "red"
+
+
 def color_by_pct(pct):
     """
-    Retourne une couleur en fonction de la pente (pour GPX & FIT)
+    Palette unifiée (GPX & FIT)
     """
     if pct < -5:
-        return "darkgreen"
+        return "#2f8f2f"      # Forte descente (vert foncé)
     if -5 <= pct < -1:
-        return "lightgreen"
+        return "#4cd964"      # Petite descente (vert clair)
     if -1 <= pct <= 1:
-        return "blue"
+        return "#6ec1ff"      # Plat (bleu)
     if 1 < pct <= 5:
-        return "orange"
-    return "red"
+        return "#ff9f40"      # Petite montée (orange)
+    return "#ff3b30"          # Forte montée (rouge)
 
 
 def build_map(profile_df):
