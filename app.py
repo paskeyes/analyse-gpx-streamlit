@@ -100,7 +100,7 @@ if mode == "📍 Estimation GPX":
     if uploaded_file:
         df_segments, profile, total_summary = parse_gpx_and_compute(uploaded_file, params)
 
-        st.write("GPX profile columns =", profile.columns.tolist())
+        #st.write("GPX profile columns =", profile.columns.tolist())
         
         # Résumé
         st.subheader("📈 Résumé automatique")
@@ -145,7 +145,7 @@ if mode == "📈 Analyse FIT":
 
         df_fit, profile_fit = parse_fit_and_compute(uploaded_fit)
 
-        st.write("FIT profile columns =", profile_fit.columns.tolist())
+        #st.write("FIT profile columns =", profile_fit.columns.tolist())
         
         # Tableau FIT
         st.subheader("📊 Tableau détaillé par type de segment")
