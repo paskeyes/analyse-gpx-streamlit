@@ -89,7 +89,7 @@ def parse_fit_and_compute(uploaded_file):
             bal_raw = data.get("left_right_balance", None)
 
         balance = None
-        if bal_raw is not None:
+        if isinstance(bal_raw, (int, float)):
             balance = bal_raw / 100.0
 
         if prev:
