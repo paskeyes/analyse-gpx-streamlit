@@ -1,109 +1,101 @@
 import pandas as pd
 
-# -----------------------------------------------------------
-# COULEURS COHÉRENTES AVEC LA CARTE & LES PENTES
-# -----------------------------------------------------------
+# Couleurs par type de segment
 COLORS = {
-    "plat": "#6ec1ff",            # bleu clair
-    "petite_montee": "#ff9f40",   # orange
-    "forte_montee": "#ff3b30",    # rouge
-    "petite_descente": "#4cd964", # vert clair
-    "forte_descente": "#2f8f2f"   # vert foncé
+    "plat": "#6ec1ff",
+    "petite_montee": "#ff9f40",
+    "forte_montee": "#ff3b30",
+    "petite_descente": "#4cd964",
+    "forte_descente": "#2f8f2f"
 }
 
-# -----------------------------------------------------------
-# FORMAT D'UNE DURÉE (float heures) EN "Hh MMmin"
-# -----------------------------------------------------------
-def format_h_m(x):
-    if isinstance(x, str):
-        return x  # déjà formaté
-    if x is None:
-        return "0h00"
-    h = int(x)
-    m = int(round((x - h) * 60))
-    return f"{h}h {m:02d}min"
-
-
-# -----------------------------------------------------------
-# STYLE DU TABLEAU DÉTAILLÉ
-# -----------------------------------------------------------
 def style_table(df):
     """
-    Transforme le DataFrame des segments en tableau stylé :
-    ✅ couleurs par type de segment
-    ✅ ligne TOTAL mise en avant
-    ✅ formatage de la durée
-    ✅ tableau lisible sur mobile
+    Style un tableau pour GPX ou FIT :
+    - Ajoute colonne Durée formatée HhMM
+    - Ajoute ligne TOTAL
+    - Applique coloration par type
+    - Formate les colonnes numériques (2 ou 1 décimales)
     """
 
-    if df.empty:
-        return df.style
-
+    # Copie de sécurité
     df2 = df.copy()
 
-    # Formatage durée (remplace la colonne "Durée")
-    if "Durée" in df2.columns:
-        df2["Durée"] = df2["Durée"].apply(format_h_m)
+    # ✅ Durée_formatée (à partir de Temps_h)
+    def format_h_m(val):
+        if isinstance(val, str):
+            return val  # déjà formaté
+        h = int(val)
+        m = int((val - h) * 60)
+        return f"{h}h {m:02d}min"
 
-    # ✅ Ajouter ligne TOTAL si absente
-    if "TOTAL" not in df2["Type"].values:
+    # Toujours créer la colonne Durée
+    if "Temps_h" in df2.columns:
+        df2["Durée"] = df2["Temps_h"].apply(format_h_m)
+    else:
+        df2["Durée"] = ""
 
-        total_distance = df2["Distance_km"].astype(float).sum()
-        total_dplus = df2["D+"].astype(float).sum()
-        total_dminus = df2["D-"].astype(float).sum()
+    # ✅ Ligne TOTAL — calcul dynamique selon les colonnes réellement présentes
+    total_row = []
+    for col in df2.columns:
 
-        # Durée brute totale en heures
-        if "Durée_raw" in df2.columns:
-            total_dur = df2["Durée_raw"].sum()
+        if col == "Type":
+            total_row.append("TOTAL")
+
+        elif col in ["Distance_km", "D+", "D-", "Temps_h"]:
+            total_row.append(df2[col].astype(float).sum())
+
+        elif col in ["Vitesse_kmh", "VAM_mh", "Cadence", "FC", "Puissance", "Equilibre_DG"]:
+            # moyenne simple
+            total_row.append(df2[col].astype(float).mean() if df2[col].count() > 0 else 0)
+
+        elif col == "Durée":
+            # on reformate la durée totale en HhMM
+            total_row.append(format_h_m(df2["Temps_h"].sum()))
+
         else:
-            # fallback : convertir Durée formatée
-            total_dur = df["Durée"].astype(float).sum()
+            total_row.append("")
 
-        df2.loc[len(df2)] = [
-            "TOTAL",
-            total_distance,
-            total_dplus,
-            total_dminus,
-            format_h_m(total_dur),
-            total_dur if "Durée_raw" in df2.columns else None
-        ]
+    # Ajout ligne TOTAL
+    df2.loc["TOTAL"] = total_row
 
-    # ✅ COLORATION CONDITIONS SUR LES LIGNES
+    # ✅ Coloration par ligne
     def color_row(row):
         if row["Type"] == "TOTAL":
-            return [
-                "background-color:#dddddd; color:black; font-weight:bold"
-            ] * len(row)
+            return ["background-color: #dddddd; color: black; font-weight: bold"] * len(row)
 
-        color = COLORS.get(row["Type"], "#ffffff")
-        return [
-            f"background-color:{color}; color:black"
-        ] * len(row)
+        t = row["Type"]
+        if t in COLORS:
+            return [f"background-color: {COLORS[t]}; color: black"] * len(row)
+
+        return [""] * len(row)
 
     styler = df2.style.apply(color_row, axis=1)
 
-    # ✅ FORMAT DES CHIFFRES
-    fmt = {
-        "Distance_km": "{:.2f}",
-        "D+": "{:.0f}",
-        "D-": "{:.0f}",
-    }
-    styler = styler.format(fmt, na_rep="")
+    # ✅ Format numérique selon les colonnes existantes
+    format_dict = {}
 
-    # ✅ STYLE GLOBAL TABLE (CSS Streamlit-safe)
-    styler = styler.set_table_styles([
-        {"selector": "th", "props": [
-            ("background-color", "#333"),
-            ("color", "white"),
-            ("font-weight", "bold"),
-            ("text-align", "center"),
-            ("padding", "6px")
-        ]},
-        {"selector": "td", "props": [
-            ("padding", "6px"),
-            ("text-align", "center"),
-            ("font-size", "14px")
-        ]}
-    ])
+    if "Distance_km" in df2:
+        format_dict["Distance_km"] = "{:.2f}"
+    if "D+" in df2:
+        format_dict["D+"] = "{:.0f}"
+    if "D-" in df2:
+        format_dict["D-"] = "{:.0f}"
+    if "Temps_h" in df2:
+        format_dict["Temps_h"] = "{:.3f}"
+    if "Vitesse_kmh" in df2:
+        format_dict["Vitesse_kmh"] = "{:.2f}"
+    if "VAM_mh" in df2:
+        format_dict["VAM_mh"] = "{:.1f}"
+    if "Cadence" in df2:
+        format_dict["Cadence"] = "{:.0f}"
+    if "FC" in df2:
+        format_dict["FC"] = "{:.0f}"
+    if "Puissance" in df2:
+        format_dict["Puissance"] = "{:.0f}"
+    if "Equilibre_DG" in df2:
+        format_dict["Equilibre_DG"] = "{:.1f}"
+
+    styler = styler.format(format_dict)
 
     return styler
