@@ -145,7 +145,7 @@ if mode == "📈 Analyse FIT":
 
         df_fit, profile_fit = parse_fit_and_compute(uploaded_fit)
 
-        st.write("GPX profile columns =", profile.columns.tolist())
+        st.write("FIT profile columns =", profile_fit.columns.tolist())
         
         # Tableau FIT
         st.subheader("📊 Tableau détaillé par type de segment")
