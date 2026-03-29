@@ -62,7 +62,7 @@ def parse_gpx_and_compute(uploaded_file, params):
                                      pt.latitude, pt.longitude)
 
                     # micro-déplacements ignorés
-                    if dist < 0.5:
+                    if dist < 2:
                         prev = pt
                         continue
 
@@ -73,7 +73,7 @@ def parse_gpx_and_compute(uploaded_file, params):
                         dalt = pt.elevation - prev.elevation
 
                         # filtrage bruit altitude
-                        if abs(dalt) < 1:
+                        if abs(dalt) < 3:
                             dalt = 0
 
                     total_dist += dist
