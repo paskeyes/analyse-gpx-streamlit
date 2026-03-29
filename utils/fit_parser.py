@@ -89,9 +89,14 @@ def parse_fit_and_compute(uploaded_file):
             bal_raw = data.get("left_right_balance", None)
 
         balance = None
-        if isinstance(bal_raw, (int, float)):
-            balance = bal_raw / 100.0
-
+        if bal_raw is not None:
+            try:
+                balance = float(bal_raw) / 100.0
+            except:
+                balance = None
+        else:
+            balance = None
+        
         if prev:
 
             # distance horizontale
