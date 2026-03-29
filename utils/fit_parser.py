@@ -194,6 +194,15 @@ def parse_fit_and_compute(uploaded_file):
         })
 
     df = pd.DataFrame(rows)
+    
+    # ✅ Ajouter une colonne Durée (comme GPX)
+    def format_h_m(hours):
+        h = int(hours)
+        m = int(round((hours - h) * 60))
+        return f"{h}h {m:02d}min"
+    
+    df["Durée"] = df["Temps_h"].apply(format_h_m)
+    
     profile_df = pd.DataFrame(profile)
 
     return df, profile_df
