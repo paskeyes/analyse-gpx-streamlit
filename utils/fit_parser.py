@@ -106,7 +106,7 @@ def parse_fit_and_compute(uploaded_file):
 
             # distance horizontale
             dist = haversine(prev["lat"], prev["lon"], lat, lon)
-            if dist < 2:   # filtrage bruit
+            if dist < 0.5:   # filtrage bruit
                 prev = {"lat": lat, "lon": lon, "alt": alt, "ts": ts}
                 continue
 
