@@ -112,7 +112,8 @@ def parse_gpx_and_compute(uploaded_file, params):
                         "dist_km": total_dist / 1000,
                         "alt": pt.elevation,
                         "lat": pt.latitude,
-                        "lon": pt.longitude
+                        "lon": pt.longitude,
+                        "pct": pct
                     })
 
                 prev = pt
