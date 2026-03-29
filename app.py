@@ -7,9 +7,8 @@ from utils.styling import style_table
 from streamlit_folium import st_folium
 
 # ----------------------------------------------------------
-# AUTHENTIFICATION (mot de passe via Streamlit Secrets)
+# AUTHENTIFICATION
 # ----------------------------------------------------------
-
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
@@ -27,7 +26,6 @@ if not st.session_state.authenticated:
 # ----------------------------------------------------------
 # CONFIG PAGE
 # ----------------------------------------------------------
-
 st.set_page_config(
     page_title="Analyse GPX & FIT",
     layout="centered",
@@ -39,7 +37,6 @@ st.title("🚴 Analyse GPX & FIT — Mode Dual")
 # ----------------------------------------------------------
 # CHOIX DU MODE
 # ----------------------------------------------------------
-
 mode = st.radio(
     "Choisir un mode d’utilisation :",
     ["📍 Estimation GPX", "📈 Analyse FIT"]
@@ -50,14 +47,10 @@ st.divider()
 # ==========================================================
 # ======================= MODE GPX ==========================
 # ==========================================================
-
 if mode == "📍 Estimation GPX":
 
     st.header("📍 Estimation d’un parcours GPX")
 
-    # ------------------------------
-    # Paramètres utilisateurs
-    # ------------------------------
     st.sidebar.header("⚙️ Paramètres Vitesse & VAM")
 
     if "params" not in st.session_state:
@@ -80,7 +73,6 @@ if mode == "📍 Estimation GPX":
     colA, colB = st.sidebar.columns(2)
     if colA.button("✅ Sauver par défaut"):
         st.success("✅ Paramètres sauvegardés.")
-
     if colB.button("♻️ Réinitialiser"):
         st.session_state.params = {
             "plat_speed": 27,
@@ -94,14 +86,11 @@ if mode == "📍 Estimation GPX":
     # ------------------------------
     # Upload GPX
     # ------------------------------
-
     uploaded_file = st.file_uploader("📤 Importer un fichier GPX", type=["gpx"])
 
     if uploaded_file:
         df_segments, profile, total_summary = parse_gpx_and_compute(uploaded_file, params)
 
-        #st.write("GPX profile columns =", profile.columns.tolist())
-        
         # Résumé
         st.subheader("📈 Résumé automatique")
         st.markdown(total_summary["text"])
@@ -109,15 +98,21 @@ if mode == "📍 Estimation GPX":
         col1, col2, col3 = st.columns(3)
         col1.metric("Distance totale", f"{total_summary['distance']:.1f} km")
         col2.metric("Dénivelé positif", f"{total_summary['d+']:.0f} m")
-        col3.metric("Temps estimé", f"{total_summary['h_str']}")
+        col3.metric("Temps estimé", total_summary['h_str'])
 
-        # Tableau
+        # Tableau GPX
         with st.expander("📊 Tableau détaillé des segments"):
-            styled = style_table(df_segments)
+
+            # ✅ On masque Temps_h
+            df_display = df_segments.drop(columns=["Temps_h"])
+
+            styled = style_table(df_display)
             st.write(styled.to_html(), unsafe_allow_html=True)
+
+            # ✅ Export CSV : même colonnes que tableau affiché
             st.download_button(
                 "⬇️ Exporter en CSV",
-                df_segments.to_csv(index=False),
+                df_display.to_csv(index=False),
                 "segments_gpx.csv"
             )
 
@@ -134,7 +129,6 @@ if mode == "📍 Estimation GPX":
 # ==========================================================
 # ======================= MODE FIT ==========================
 # ==========================================================
-
 if mode == "📈 Analyse FIT":
 
     st.header("📈 Analyse d’une sortie FIT")
@@ -145,16 +139,18 @@ if mode == "📈 Analyse FIT":
 
         df_fit, profile_fit = parse_fit_and_compute(uploaded_fit)
 
-        #st.write("FIT profile columns =", profile_fit.columns.tolist())
-        
-        # Tableau FIT
         st.subheader("📊 Tableau détaillé par type de segment")
-        styled = style_table(df_fit)
+
+        # ✅ Masquer Tempo_h dans FIT également
+        df_fit_display = df_fit.drop(columns=["Temps_h"])
+
+        styled = style_table(df_fit_display)
         st.write(styled.to_html(), unsafe_allow_html=True)
 
+        # ✅ Export CSV = même colonnes que tableau affiché
         st.download_button(
             "⬇️ Exporter en CSV",
-            df_fit.to_csv(index=False),
+            df_fit_display.to_csv(index=False),
             "analyse_fit.csv"
         )
 
