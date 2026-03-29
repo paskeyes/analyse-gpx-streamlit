@@ -82,3 +82,19 @@ Cette application Streamlit permet :
 ---
 
 # ✅ 2. Architecture du projet
+
+
+
+
+
+
+
+## 🚧 Roadmap (Fonctionnalités prévues)
+
+### ✅ Court terme (1–2 semaines)
+- [ ] Ajouter légende couleur sur carte
+- [ ] Ajouter légende couleur sur carte
+- [ ] sur les deux modes, rajouter un tableau détaillé en indiquant les montées1/2/3... ou plats ou descentes...
+- [ ] ajouter sur le FIT => la courbe de puissance en fonction des km
+- [ ] ajouter sur le FIT => une courbe des VAM en fonction des durées de montées : chaque courbe doit avoir la même couleurs mais avec une nuance entre les numéros de montées, et distinguer petite et grande montée
+- [ ] 
