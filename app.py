@@ -127,6 +127,7 @@ if mode == "📍 Estimation GPX":
 
 
 
+
 # ==========================================================
 # ======================= MODE FIT ==========================
 # ==========================================================
@@ -138,15 +139,24 @@ if mode == "📈 Analyse FIT":
 
     if uploaded_fit:
 
-        # ✅ NOUVEAU format : le parser renvoie 3 valeurs
+        # ✅ Le nouveau parser renvoie 3 objets, pas 2
         df_global, df_detail, profile_fit = parse_fit_and_compute(uploaded_fit)
 
+        # ✅ Correction carte : profile_fit doit avoir "dist_km"
+        if "dist_km" not in profile_fit.columns:
+            if "dist" in profile_fit.columns:
+                profile_fit = profile_fit.rename(columns={"dist": "dist_km"})
+
         # ------------------------------------------------------
-        # ✅ TABLEAU GLOBAL
+        # ✅ TABLEAU GLOBAL (Montées / Plats / Descentes)
         # ------------------------------------------------------
         st.subheader("📊 Synthèse globale (Montées / Plats / Descentes)")
 
-        df_global_display = df_global.drop(columns=["Durée_h"], errors="ignore")
+        df_global_display = df_global.copy()
+
+        # ✅ Pas de "Temps_h" dans df_global → pas de drop inutile
+        df_global_display = df_global_display.drop(columns=["Durée_h"], errors="ignore")
+
         styled_global = style_table(df_global_display)
         st.write(styled_global.to_html(), unsafe_allow_html=True)
 
@@ -166,20 +176,23 @@ if mode == "📈 Analyse FIT":
         if df_detail is not None and len(df_detail) > 0:
 
             df_detail_display = df_detail.copy()
-            df_detail_display["Type"] = df_detail_display["Montée"]   # ✅ styling.py a besoin de Type
+
+            # ✅ styling.py exige la colonne “Type”
+            df_detail_display["Type"] = df_detail_display["Montée"]
+
             df_detail_display = df_detail_display.drop(columns=["Durée_h"], errors="ignore")
 
             styled_detail = style_table(df_detail_display)
             st.write(styled_detail.to_html(), unsafe_allow_html=True)
 
             st.download_button(
-                "⬇️ Exporter détails montées (CSV)",
+                "⬇️ Exporter montées (CSV)",
                 df_detail_display.to_csv(index=False),
                 "fit_montees.csv"
             )
 
         else:
-            st.info("Aucune montée significative détectée selon les critères TrainingPeaks.")
+            st.info("Aucune montée significative détectée.")
 
         st.divider()
 
@@ -194,4 +207,4 @@ if mode == "📈 Analyse FIT":
         # ✅ PROFIL ALT FIT
         # ------------------------------------------------------
         st.subheader("📉 Profil altimétrique FIT")
-        st.line_chart(profile_fit.set_index("dist")["alt"])
+        st.line_chart(profile_fit.set_index("dist_km")["alt"])
