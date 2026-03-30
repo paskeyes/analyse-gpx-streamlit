@@ -126,6 +126,7 @@ if mode == "📍 Estimation GPX":
         st.line_chart(profile.set_index("dist_km")["alt"])
 
 
+
 # ==========================================================
 # ======================= MODE FIT ==========================
 # ==========================================================
@@ -137,28 +138,57 @@ if mode == "📈 Analyse FIT":
 
     if uploaded_fit:
 
-        df_fit, profile_fit = parse_fit_and_compute(uploaded_fit)
+        # ✅ IMPORTANT : le nouveau parser renvoie 3 valeurs
+        df_global, df_detail, profile_fit = parse_fit_and_compute(uploaded_fit)
 
-        st.subheader("📊 Tableau détaillé par type de segment")
+        # ------------------------------------------------------
+        # ✅ TABLEAU GLOBAL (Montées / Plats / Descentes)
+        # ------------------------------------------------------
+        st.subheader("📊 Synthèse globale (Montées / Plats / Descentes)")
 
-        # ✅ Masquer Tempo_h dans FIT également
-        df_fit_display = df_fit.drop(columns=["Temps_h"])
+        df_global_display = df_global.drop(columns=["Durée_h"], errors="ignore")
+        styled_global = style_table(df_global_display)
+        st.write(styled_global.to_html(), unsafe_allow_html=True)
 
-        styled = style_table(df_fit_display)
-        st.write(styled.to_html(), unsafe_allow_html=True)
-
-        # ✅ Export CSV = même colonnes que tableau affiché
         st.download_button(
-            "⬇️ Exporter en CSV",
-            df_fit_display.to_csv(index=False),
-            "analyse_fit.csv"
+            "⬇️ Exporter synthèse (CSV)",
+            df_global_display.to_csv(index=False),
+            "fit_global.csv"
         )
 
-        # Carte FIT
+        st.divider()
+
+        # ------------------------------------------------------
+        # ✅ TABLEAU DÉTAILLÉ DES MONTÉES
+        # ------------------------------------------------------
+        st.subheader("⛰️ Détail des montées détectées")
+
+        if df_detail is not None and len(df_detail) > 0:
+
+            df_detail_display = df_detail.drop(columns=["Durée_h"], errors="ignore")
+            styled_detail = style_table(df_detail_display)
+            st.write(styled_detail.to_html(), unsafe_allow_html=True)
+
+            st.download_button(
+                "⬇️ Exporter détails montées (CSV)",
+                df_detail_display.to_csv(index=False),
+                "fit_montees.csv"
+            )
+
+        else:
+            st.info("Aucune montée significative détectée selon les critères TrainingPeaks.")
+
+        st.divider()
+
+        # ------------------------------------------------------
+        # ✅ CARTE FIT
+        # ------------------------------------------------------
         with st.expander("🗺️ Carte interactive FIT"):
             folium_map = build_map(profile_fit)
             st_folium(folium_map, width=700, height=500)
 
-        # Profil altitude FIT
-        st.subheader("📉 Profil altimétrique")
-        st.line_chart(profile_fit.set_index("dist_km")["alt"])
+        # ------------------------------------------------------
+        # ✅ PROFIL ALT FIT
+        # ------------------------------------------------------
+        st.subheader("📉 Profil altimétrique FIT")
+        st.line_chart(profile_fit.set_index("dist")["alt"])
