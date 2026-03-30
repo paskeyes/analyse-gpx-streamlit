@@ -129,6 +129,22 @@ def parse_fit_and_compute(uploaded_file):
         total_dist += dist
 
         pct = (dalt/dist*100) if dist>0 else 0
+
+        # ✅ Filtrage pente Strava-like (moyenne sur ~30 mètres)
+        WINDOW_POINTS = 5   # ≈ 5 secondes à 1 Hz = généralement 25–35 m
+        
+        if len(profile) >= WINDOW_POINTS:
+            # derniers points
+            p0 = profile[-WINDOW_POINTS]
+            p1 = profile[-1]
+        
+            dist_window = (p1["dist_km"] - p0["dist_km"]) * 1000  # km → m
+            alt_window = p1["alt"] - p0["alt"]
+        
+            if dist_window > 0:
+                pct = (alt_window / dist_window) * 100
+        #fin du filtrage strava-like / à supprimer si pire
+        
         cat = classify(pct)
 
         stats[cat]["dist"] += dist
