@@ -179,7 +179,8 @@ def parse_fit_and_compute(uploaded_file):
         time_h = v["time"]/3600 if v["time"] else 0
         moving_h = v["moving_time"]/3600 if v["moving_time"] else 0
 
-        vit = dist_km / moving_h if moving_h>0 else 0
+        # ancienne valeur : vit = dist_km / moving_h if moving_h>0 else 0
+        vit = dist_km / time_h if time_h > 0 else 0
         vam = v["d+"] / time_h if (time_h>0 and k in ["petite_montee","forte_montee"]) else 0
 
         cad = wmean(v["cad_vals"], v["cad_dt"])
