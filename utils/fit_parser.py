@@ -168,3 +168,48 @@ def parse_fit_and_compute(uploaded_file):
         prev = pt
 
     # Construction DF final
+    rows = []
+
+    def wmean(vals, dts):
+        return (np.sum(np.array(vals)*np.array(dts))/np.sum(dts)) if dts else 0
+
+    for k, v in stats.items():
+
+        dist_km = v["dist"]/1000
+        time_h = v["time"]/3600 if v["time"] else 0
+        moving_h = v["moving_time"]/3600 if v["moving_time"] else 0
+
+        vit = dist_km / moving_h if moving_h>0 else 0
+        vam = v["d+"] / time_h if (time_h>0 and k in ["petite_montee","forte_montee"]) else 0
+
+        cad = wmean(v["cad_vals"], v["cad_dt"])
+        fc  = wmean(v["fc_vals"], v["fc_dt"])
+        pwr = wmean(v["pwr_vals"], v["pwr_dt"])
+        bal = np.mean(v["bal_vals"]) if v["bal_vals"] else 0
+
+        rows.append({
+            "Type": k,
+            "Distance_km": dist_km,
+            "D+": v["d+"],
+            "D-": v["d-"],
+            "Temps_h": time_h,
+            "Vitesse_kmh": round(vit,2),
+            "VAM_mh": round(vam,1),
+            "Cadence": round(cad),
+            "FC": round(fc),
+            "Puissance": round(pwr),
+            "Equilibre_DG": round(bal,1)
+        })
+
+    df = pd.DataFrame(rows)
+
+    def format_h(h):
+        H = int(h)
+        M = int(round((h-H)*60))
+        return f"{H}h {M:02d}min"
+
+    df["Durée"] = df["Temps_h"].apply(format_h)
+
+    profile_df = pd.DataFrame(profile)
+
+    return df, profile_df
