@@ -138,11 +138,11 @@ if mode == "📈 Analyse FIT":
 
     if uploaded_fit:
 
-        # ✅ IMPORTANT : le nouveau parser renvoie 3 valeurs
+        # ✅ NOUVEAU format : le parser renvoie 3 valeurs
         df_global, df_detail, profile_fit = parse_fit_and_compute(uploaded_fit)
 
         # ------------------------------------------------------
-        # ✅ TABLEAU GLOBAL (Montées / Plats / Descentes)
+        # ✅ TABLEAU GLOBAL
         # ------------------------------------------------------
         st.subheader("📊 Synthèse globale (Montées / Plats / Descentes)")
 
@@ -165,7 +165,10 @@ if mode == "📈 Analyse FIT":
 
         if df_detail is not None and len(df_detail) > 0:
 
-            df_detail_display = df_detail.drop(columns=["Durée_h"], errors="ignore")
+            df_detail_display = df_detail.copy()
+            df_detail_display["Type"] = df_detail_display["Montée"]   # ✅ styling.py a besoin de Type
+            df_detail_display = df_detail_display.drop(columns=["Durée_h"], errors="ignore")
+
             styled_detail = style_table(df_detail_display)
             st.write(styled_detail.to_html(), unsafe_allow_html=True)
 
