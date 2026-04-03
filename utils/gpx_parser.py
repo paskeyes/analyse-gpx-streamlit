@@ -212,6 +212,10 @@ def parse_gpx_and_compute(uploaded_file, params):
     if current is not None:
         merged_climbs.append(current)
 
+    # -----------------------------------------------------
+    # ✅ FILTRAGE FINAL DES VRAIES MONTÉES (IDENTIQUE FIT)
+    # -----------------------------------------------------
+    
     detailed_climbs = []
     
     for seg in merged_climbs:
@@ -228,42 +232,47 @@ def parse_gpx_and_compute(uploaded_file, params):
             avg_grade >= MIN_AVG_GRADE
         ):
             detailed_climbs.append(seg)
-
-
     
-    # build tableau montées GPX
+    # -----------------------------------------------------
+    # ✅ TABLEAU DES MONTÉES GPX (À PARTIR DES MONTÉES VALIDÉES)
+    # -----------------------------------------------------
+    
     rows_montees = []
     idx = 1
-
-    for seg in merged:
+    
+    for seg in detailed_climbs:
         p0 = prof.iloc[seg["i0"]]
         p1 = prof.iloc[seg["i1"]]
-
+    
         dist_km = (p1["dist"] - p0["dist"]) / 1000
         dplus = max(0, p1["alt"] - p0["alt"])
         pente = (dplus / (dist_km * 1000)) * 100 if dist_km > 0 else 0
-
-        if dist_km >= 1.0 and dplus >= 30 and pente >= 2.0:
-            time_h = dplus / params["petite_montee_vam"]
-
-            rows_montees.append({
-                "Montée": f"Montée {idx}",
-                "Catégorie": climb_category(dplus),
-                "Début_km": f"{p0['dist']/1000:.2f}",
-                "Distance_km": f"{dist_km:.2f}",
-                "D+": int(round(dplus)),
-                "Pente_moy%": f"{pente:.1f}",
-                "VAM_mh": "",
-                "Vitesse_kmh": "",
-                "Cadence": "",
-                "FC": "",
-                "Puissance": "",
-                "Durée": format_hm(time_h),
-                "Type": f"Montée {idx}"
-            })
-            idx += 1
-
+    
+        # Durée estimée (VAM utilisateur)
+        time_h = dplus / params["petite_montee_vam"]
+    
+        rows_montees.append({
+            "Montée": f"Montée {idx}",
+            "Catégorie": climb_category(dplus),
+            "Début_km": f"{p0['dist']/1000:.2f}",
+            "Distance_km": f"{dist_km:.2f}",
+            "D+": int(round(dplus)),
+            "Pente_moy%": f"{pente:.1f}",
+            "VAM_mh": "",
+            "Vitesse_kmh": "",
+            "Cadence": "",
+            "FC": "",
+            "Puissance": "",
+            "Durée": format_hm(time_h),
+            "Type": f"Montée {idx}"
+        })
+    
+        idx += 1
+    
     df_montees = pd.DataFrame(rows_montees)
+
+
+    
 
     # -----------------------------------------------------
     # ✅ 4) RÉSUMÉ GLOBAL
