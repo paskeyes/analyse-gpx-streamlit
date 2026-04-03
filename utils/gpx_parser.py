@@ -255,4 +255,7 @@ def parse_gpx_and_compute(uploaded_file, params):
         )
     }
 
-    return df_segments, df_montees, profile_df, summary
+
+    summary["montees"] = df_montees
+    return df_segments, profile_df, summary
+
