@@ -313,7 +313,7 @@ def parse_fit_and_compute(uploaded_file):
             "Montée": f"Montée {i}",
             "Catégorie": cat,
             "Début_km": f"{start_km:.2f}",
-            "Distance_km": f"{dist:.2f},
+            "Distance_km": f"{dist:.2f}",
             "D+": int(round(dplus)),
             "Pente_moy%": f"{pente_moy:.1f}",
             "VAM_mh": int(round(vam)),
