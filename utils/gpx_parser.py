@@ -105,7 +105,7 @@ def parse_gpx_and_compute(uploaded_file, params):
     profile_df = pd.DataFrame(profile)
 
     # -----------------------------------------------------
-    # ✅ 2) TABLEAU GPX CLASSIQUE (INCHANGÉ)
+    # ✅ 2) TABLEAU GPX CLASSIQUE
     # -----------------------------------------------------
     rows = []
     for k, v in stats.items():
