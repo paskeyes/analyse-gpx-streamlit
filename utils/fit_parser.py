@@ -172,71 +172,63 @@ def parse_fit_and_compute(uploaded_file):
                      "i0": current["idx_start"],
                      "i1": len(prof)-1})
 
-    # ---------------------------------------------------------
-    # 4) FILTRAGE DES MONTÉES (≥150m & ≥5m D+)
-    # ---------------------------------------------------------
-    detailed_climbs = []
+# ---------------------------------------------------------
+# 4) CONSTRUCTION DES "VRAIES MONTÉES" (fusion TrainingPeaks)
+# ---------------------------------------------------------
+merged_climbs = []
 
-    def seg_metrics(seg):
-        p0 = prof.iloc[seg["i0"]]
-        p1 = prof.iloc[seg["i1"]]
+current = None
 
-        dist = (p1["dist"] - p0["dist"]) / 1000
-        dplus = max(0, p1["alt"] - p0["alt"])
-        dminus = min(0, p1["alt"] - p0["alt"])
-        dt = prof.loc[seg["i0"]:seg["i1"],"dt"].sum()
-        time_h = dt/3600
+MAX_REPLAT_DIST = 150.0   # m
+MAX_DESCENTE_DNEG = -3.0  # m
 
-        moving_dt = prof.loc[seg["i0"]:seg["i1"], "dt"]
-        moving_dt = moving_dt.where(prof.loc[seg["i0"]:seg["i1"], "moving"], 0)
-        moving_h = moving_dt.sum()/3600
+for seg in segments:
 
-        vit = dist/moving_h if moving_h>0 else 0
+    if seg["type"] == "montee":
 
-        cad_vals = prof.loc[seg["i0"]:seg["i1"], "cad"]
-        cad_dt   = prof.loc[seg["i0"]:seg["i1"], "dt"]
-        fc_vals  = prof.loc[seg["i0"]:seg["i1"], "fc"]
-        pwr_vals = prof.loc[seg["i0"]:seg["i1"], "pwr"]
+        if current is None:
+            current = {
+                "i0": seg["i0"],
+                "i1": seg["i1"]
+            }
+        else:
+            current["i1"] = seg["i1"]
 
-        def wmean(vals, dts):
-            if len(vals.dropna()) == 0:
-                return 0
-            return (vals.fillna(0)*dts).sum() / dts.sum()
+    else:
+        # segment non-montant
+        if current is not None:
+            # mesurer la coupure
+            p_end = prof.iloc[current["i1"]]
+            p_now = prof.iloc[seg["i1"]]
 
-        cad = wmean(cad_vals, cad_dt)
-        fc  = wmean(fc_vals, cad_dt)
-        pwr = wmean(pwr_vals, cad_dt)
+            gap_dist = p_now["dist"] - p_end["dist"]
+            gap_alt = p_now["alt"] - p_end["alt"]
 
-        return dist, dplus, dminus, time_h, moving_h, vit, cad, fc, pwr
+            # tolérance de replat / micro-descente
+            if gap_dist <= MAX_REPLAT_DIST and gap_alt >= MAX_DESCENTE_DNEG:
+                current["i1"] = seg["i1"]
+            else:
+                merged_climbs.append(current)
+                current = None
 
-    # Détails : liste des montées
-    for s in segments:
-        if s["type"] == "montee":
-            dist,dplus,_,_,_,_,_,_,_ = seg_metrics(s)
-            if dist>=0.150 and dplus>=5:
-                detailed_climbs.append(s)
+# fin de boucle
+if current is not None:
+    merged_climbs.append(current)
+
 
     # ---------------------------------------------------------
     # 5) TABLEAU DÉTAILLÉ DES MONTÉES
     # ---------------------------------------------------------
-    rows_detail = []
-    for i,s in enumerate(detailed_climbs, start=1):
-        dist,dplus,dminus,time_h,moving_h,vit,cad,fc,pwr = seg_metrics(s)
-        rows_detail.append({
-            "Montée": f"Montée {i}",
-            "Distance_km": dist,
-            "D+": dplus,
-            "Pente_moy%": (dplus/(dist*1000))*100 if dist>0 else 0,
-            "Vitesse_kmh": vit,
-            "Cadence": cad,
-            "FC": fc,
-            "Puissance": pwr,
-            "Durée_h": time_h
-        })
+# ---------------------------------------------------------
+# 5) FILTRAGE FINAL DES VRAIES MONTÉES
+# ---------------------------------------------------------
+detailed_climbs = []
 
-    df_detail = pd.DataFrame(rows_detail)
-    df_detail["Durée"] = df_detail["Durée_h"].apply(lambda h: f"{int(h)}h {int((h-int(h))*60):02d}min")
+for s in merged_climbs:
+    dist, dplus, _, _, _, _, _, _, _ = seg_metrics(s)
 
+    if dist >= 0.300 and dplus >= 10:
+        detailed_climbs.append(s)
     # ---------------------------------------------------------
     # 6) TABLEAU GLOBAL (Montées / Plats / Descentes)
     # ---------------------------------------------------------
