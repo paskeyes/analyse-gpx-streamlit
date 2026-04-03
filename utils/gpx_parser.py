@@ -146,10 +146,10 @@ def parse_gpx_and_compute(uploaded_file, params):
 
     
     # Paramètres GPX (plus permissifs que FIT)
-    MAX_REPLAT_DIST = 300.0      # m
-    MAX_DESCENTE_DNEG = -7.0     # m
+    MAX_REPLAT_DIST = 500.0      # m
+    MAX_DESCENTE_DNEG = -12.0     # m
     
-    MIN_CLIMB_DIST_KM = 0.7      # km
+    MIN_CLIMB_DIST_KM = 0.6      # km
     MIN_CLIMB_DPLUS = 20.0       # m
     MIN_AVG_GRADE = 1.5          # %
 
