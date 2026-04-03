@@ -172,63 +172,91 @@ def parse_fit_and_compute(uploaded_file):
                      "i0": current["idx_start"],
                      "i1": len(prof)-1})
 
-# ---------------------------------------------------------
-# 4) CONSTRUCTION DES "VRAIES MONTÉES" (fusion TrainingPeaks)
-# ---------------------------------------------------------
-merged_climbs = []
-
-current = None
-
-MAX_REPLAT_DIST = 150.0   # m
-MAX_DESCENTE_DNEG = -3.0  # m
-
-for seg in segments:
-
-    if seg["type"] == "montee":
-
-        if current is None:
-            current = {
-                "i0": seg["i0"],
-                "i1": seg["i1"]
-            }
-        else:
-            current["i1"] = seg["i1"]
-
-    else:
-        # segment non-montant
-        if current is not None:
-            # mesurer la coupure
-            p_end = prof.iloc[current["i1"]]
-            p_now = prof.iloc[seg["i1"]]
-
-            gap_dist = p_now["dist"] - p_end["dist"]
-            gap_alt = p_now["alt"] - p_end["alt"]
-
-            # tolérance de replat / micro-descente
-            if gap_dist <= MAX_REPLAT_DIST and gap_alt >= MAX_DESCENTE_DNEG:
-                current["i1"] = seg["i1"]
+    # ---------------------------------------------------------
+    # 4) CONSTRUCTION DES "VRAIES MONTÉES" (fusion TrainingPeaks)
+    # ---------------------------------------------------------
+    merged_climbs = []
+    
+    current = None
+    
+    MAX_REPLAT_DIST = 150.0   # m
+    MAX_DESCENTE_DNEG = -3.0  # m
+    
+    for seg in segments:
+    
+        if seg["type"] == "montee":
+    
+            if current is None:
+                current = {
+                    "i0": seg["i0"],
+                    "i1": seg["i1"]
+                }
             else:
-                merged_climbs.append(current)
-                current = None
-
-# fin de boucle
-if current is not None:
-    merged_climbs.append(current)
+                current["i1"] = seg["i1"]
+    
+        else:
+            # segment non-montant
+            if current is not None:
+                # mesurer la coupure
+                p_end = prof.iloc[current["i1"]]
+                p_now = prof.iloc[seg["i1"]]
+    
+                gap_dist = p_now["dist"] - p_end["dist"]
+                gap_alt = p_now["alt"] - p_end["alt"]
+    
+                # tolérance de replat / micro-descente
+                if gap_dist <= MAX_REPLAT_DIST and gap_alt >= MAX_DESCENTE_DNEG:
+                    current["i1"] = seg["i1"]
+                else:
+                    merged_climbs.append(current)
+                    current = None
+    
+    # fin de boucle
+    if current is not None:
+        merged_climbs.append(current)
 
 
     # ---------------------------------------------------------
-    # 5) TABLEAU DÉTAILLÉ DES MONTÉES
+    # 5) FILTRAGE FINAL DES "VRAIES MONTÉES" (TrainingPeaks)
     # ---------------------------------------------------------
-# ---------------------------------------------------------
-# 5) FILTRAGE FINAL DES VRAIES MONTÉES
-# ---------------------------------------------------------
-detailed_climbs = []
+    # À ce stade :
+    # - merged_climbs contient des montées fusionnées
+    # - seg_metrics(seg) calcule distance, D+, durée, etc.
+    #
+    # Critères retenus (TrainingPeaks-like) :
+    # - distance minimale : 300 m
+    # - D+ minimal : 10 m
+    # - pente moyenne globale positive
+    # ---------------------------------------------------------
+    
+    detailed_climbs = []
+    
+    MIN_CLIMB_DIST_KM = 0.300   # 300 m
+    MIN_CLIMB_DPLUS = 10.0      # 10 m
+    MIN_AVG_GRADE = 1.2         # % (cohérent avec TP / WKO)
+    
+    for seg in merged_climbs:
+    
+        # Calcul des métriques de la montée candidate
+        dist, dplus, dminus, time_h, moving_h, vit, cad, fc, pwr = seg_metrics(seg)
+    
+        # Sécurité : éviter division par zéro
+        if dist <= 0:
+            continue
+    
+        # Pente moyenne réelle de la montée
+        avg_grade = (dplus / (dist * 1000)) * 100
+    
+        # Application des critères TrainingPeaks
+        if (
+            dist >= MIN_CLIMB_DIST_KM and
+            dplus >= MIN_CLIMB_DPLUS and
+            avg_grade >= MIN_AVG_GRADE
+        ):
+            detailed_climbs.append(seg)
 
-for s in merged_climbs:
-    dist, dplus, _, _, _, _, _, _, _ = seg_metrics(s)
 
-    if dist >= 0.300 and dplus >= 10:
-        detailed_climbs.append(s)
+    
     # ---------------------------------------------------------
     # 6) TABLEAU GLOBAL (Montées / Plats / Descentes)
     # ---------------------------------------------------------
