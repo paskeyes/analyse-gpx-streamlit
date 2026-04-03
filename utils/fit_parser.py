@@ -313,7 +313,7 @@ def parse_fit_and_compute(uploaded_file):
     df_detail = pd.DataFrame(rows_detail)
 #old    df_detail["Durée"] = df_detail["Durée_h"].apply(
 #        lambda h: f"{int(h)}h {int((h - int(h)) * 60):02d}min"
-    )
+#    )
 
     # ---------------------------------------------------------
     # 6) TABLEAU GLOBAL (Montées / Plats / Descentes)
