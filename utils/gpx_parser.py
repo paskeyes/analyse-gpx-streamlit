@@ -144,6 +144,15 @@ def parse_gpx_and_compute(uploaded_file, params):
     prof = profile_df.copy()
     prof["dist"] = prof["dist_km"] * 1000
 
+    
+    # Paramètres GPX (plus permissifs que FIT)
+    MAX_REPLAT_DIST = 300.0      # m
+    MAX_DESCENTE_DNEG = -7.0     # m
+    
+    MIN_CLIMB_DIST_KM = 0.7      # km
+    MIN_CLIMB_DPLUS = 20.0       # m
+    MIN_AVG_GRADE = 1.5          # %
+
     WINDOW = 200.0
     grad = []
     i0 = 0
@@ -178,26 +187,50 @@ def parse_gpx_and_compute(uploaded_file, params):
     segments.append({"type": cur, "i0": start, "i1": len(prof)-1})
 
     # fusion des montées
-    merged = []
+    merged_climbs = []
     current = None
-    for s in segments:
-        if s["type"] == "montee":
+    for seg in segments:
+        if seg["type"] == "montee":
             if current is None:
-                current = dict(s)
+                current = {"i0": seg["i0"], "i1": seg["i1"]}
             else:
-                current["i1"] = s["i1"]
+                current["i1"] = seg["i1"]
         else:
             if current is not None:
-                gap = prof.loc[s["i1"], "dist"] - prof.loc[current["i1"], "dist"]
-                drop = prof.loc[s["i1"], "alt"] - prof.loc[current["i1"], "alt"]
-                if gap <= 300 and drop >= -7:
-                    current["i1"] = s["i1"]
+                p_end = prof.iloc[current["i1"]]
+                p_now = prof.iloc[seg["i1"]]
+    
+                gap_dist = p_now["dist"] - p_end["dist"]
+                gap_alt  = p_now["alt"]  - p_end["alt"]
+    
+                if gap_dist <= MAX_REPLAT_DIST and gap_alt >= MAX_DESCENTE_DNEG:
+                    current["i1"] = seg["i1"]
                 else:
-                    merged.append(current)
+                    merged_climbs.append(current)
                     current = None
-    if current:
-        merged.append(current)
+    
+    if current is not None:
+        merged_climbs.append(current)
 
+    detailed_climbs = []
+    
+    for seg in merged_climbs:
+        p0 = prof.iloc[seg["i0"]]
+        p1 = prof.iloc[seg["i1"]]
+    
+        dist_km = (p1["dist"] - p0["dist"]) / 1000
+        dplus = max(0, p1["alt"] - p0["alt"])
+        avg_grade = (dplus / (dist_km * 1000)) * 100 if dist_km > 0 else 0
+    
+        if (
+            dist_km >= MIN_CLIMB_DIST_KM and
+            dplus >= MIN_CLIMB_DPLUS and
+            avg_grade >= MIN_AVG_GRADE
+        ):
+            detailed_climbs.append(seg)
+
+
+    
     # build tableau montées GPX
     rows_montees = []
     idx = 1
@@ -233,7 +266,7 @@ def parse_gpx_and_compute(uploaded_file, params):
     df_montees = pd.DataFrame(rows_montees)
 
     # -----------------------------------------------------
-    # ✅ 4) RÉSUMÉ GLOBAL (INCHANGÉ)
+    # ✅ 4) RÉSUMÉ GLOBAL
     # -----------------------------------------------------
     tot_dist = df_segments["Distance_km"].sum()
     tot_dplus = df_segments["D+"].sum()
