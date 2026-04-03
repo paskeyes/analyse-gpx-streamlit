@@ -53,7 +53,9 @@ def style_table(df):
 
     # DISTANCE
     if "Distance_km" in df2:
-        total["Distance_km"] = df2["Distance_km"].sum()
+        dist_vals = pd.to_numeric(df2["Distance_km"], errors="coerce")
+        total["Distance_km"] = round(dist_vals.sum(), 2)
+
 
     # D+
     if "D+" in df2:
