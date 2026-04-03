@@ -90,7 +90,8 @@ if mode == "📍 Estimation GPX":
 
     if uploaded_file:
         df_segments, profile, total_summary = parse_gpx_and_compute(uploaded_file, params)
-
+        df_gpx_montees = total_summary.get("montees")
+        
         # Résumé
         st.subheader("📈 Résumé automatique")
         st.markdown(total_summary["text"])
@@ -116,7 +117,35 @@ if mode == "📍 Estimation GPX":
                 "segments_gpx.csv"
             )
 
+        
+        # ------------------------------------------------------
+        # ✅ TABLEAU DÉTAILLÉ DES MONTÉES (GPX – estimées)
+        # ------------------------------------------------------
+        if df_gpx_montees is not None and len(df_gpx_montees) > 0:
+        
+            st.subheader("⛰️ Détail des montées (GPX – estimation)")
+        
+            df_gpx_montees_display = df_gpx_montees.copy()
+        
+            # ✅ styling.py exige la colonne "Type"
+            df_gpx_montees_display["Type"] = df_gpx_montees_display["Montée"]
+        
+            styled_gpx_montees = style_table(df_gpx_montees_display)
+            st.write(styled_gpx_montees.to_html(), unsafe_allow_html=True)
+        
+            st.download_button(
+                "⬇️ Exporter montées GPX (CSV)",
+                df_gpx_montees_display.to_csv(index=False),
+                "gpx_montees.csv"
+            )
+        
+        else:
+            st.info("Aucune montée significative détectée sur ce parcours.")
+
+
+        # ------------------------------------------------------        
         # Carte
+        # ------------------------------------------------------
         with st.expander("🗺️ Carte interactive GPX"):
             folium_map = build_map(profile)
             st_folium(folium_map, width=700, height=500)
