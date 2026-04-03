@@ -237,28 +237,39 @@ def parse_fit_and_compute(uploaded_file):
         merged_climbs.append(current)
 
     # ---------------------------------------------------------
-    # 5) FILTRAGE FINAL DES VRAIES MONTÉES (TrainingPeaks)
+    # 5) FILTRAGE FINAL DES VRAIES MONTÉES (TrainingPeaks strict)
     # ---------------------------------------------------------
+    # Critères retenus :
+    # - distance >= 1.0 km
+    # - D+ >= 30 m
+    # - pente moyenne >= 2.0 %
+    # ---------------------------------------------------------
+    
     detailed_climbs = []
-
-    MIN_CLIMB_DIST_KM = 0.300
-    MIN_CLIMB_DPLUS = 10.0
-    MIN_AVG_GRADE = 1.2
-
+    
+    MIN_CLIMB_DIST_KM = 1.0     # km
+    MIN_CLIMB_DPLUS = 30.0      # m
+    MIN_AVG_GRADE = 2.0         # %
+    
     for seg in merged_climbs:
+    
         dist, dplus, dminus, time_h, moving_h, vit, cad, fc, pwr = seg_metrics(seg)
-
-        if dist <= 0:
+    
+        # Sécurités
+        if dist <= 0 or time_h <= 0:
             continue
-
+    
+        # pente moyenne réelle
         avg_grade = (dplus / (dist * 1000)) * 100
-
+    
+        # Filtrage TrainingPeaks
         if (
-            dist >= MIN_CLIMB_DIST_KM
-            and dplus >= MIN_CLIMB_DPLUS
-            and avg_grade >= MIN_AVG_GRADE
+            dist >= MIN_CLIMB_DIST_KM and
+            dplus >= MIN_CLIMB_DPLUS and
+            avg_grade >= MIN_AVG_GRADE
         ):
             detailed_climbs.append(seg)
+
 
 
     # ---------------------------------------------------------
