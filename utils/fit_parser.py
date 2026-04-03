@@ -302,19 +302,19 @@ def parse_fit_and_compute(uploaded_file):
             continue
     
         pente_moy = round((dplus / (dist * 1000)) * 100, 1)
-        vam = dplus / time_h
+        vam = round(dplus / time_h)
         start_km = round(prof.iloc[seg["i0"]]["dist"] / 1000, 2)
         cat = climb_category(dplus)
     
         rows_detail.append({
             "Montée": f"Montée {i}",
             "Catégorie": cat,
-            "Début_km": start_km,
+            "Début_km": round(start_km,2),
             "Distance_km": round(dist, 2),
             "D+": round(dplus),
-            "Pente_moy%": pente_moy,
+            "Pente_moy%": round(pente_moy,1),
             "VAM_mh": round(vam),
-            "Vitesse_kmh": round(vit, 2),
+            "Vitesse_kmh": round(vit, 1),
             "Cadence": round(cad),
             "FC": round(fc),
             "Puissance": round(pwr),
