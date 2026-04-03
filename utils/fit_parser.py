@@ -301,23 +301,26 @@ def parse_fit_and_compute(uploaded_file):
         if time_h <= 0 or dist <= 0:
             continue
     
-        pente_moy = round((dplus / (dist * 1000)) * 100, 1)
-        vam = round(dplus / time_h)
-        start_km = round(prof.iloc[seg["i0"]]["dist"] / 1000, 2)
+        pente_moy = (dplus / (dist * 1000)) * 100
+        vam = dplus / time_h
+        start_km = prof.iloc[seg["i0"]]["dist"] / 1000
         cat = climb_category(dplus)
-    
+
+
+
+        
         rows_detail.append({
             "Montée": f"Montée {i}",
             "Catégorie": cat,
-            "Début_km": round(start_km,2),
-            "Distance_km": round(dist, 2),
-            "D+": round(dplus),
-            "Pente_moy%": round(pente_moy,1),
-            "VAM_mh": round(vam),
-            "Vitesse_kmh": round(vit, 1),
-            "Cadence": round(cad),
-            "FC": round(fc),
-            "Puissance": round(pwr),
+            "Début_km": f"{start_km:.2f}",
+            "Distance_km": f"{dist:.2f},
+            "D+": int(round(dplus)),
+            "Pente_moy%": f"{pente_moy:.1f}",
+            "VAM_mh": int(round(vam)),
+            "Vitesse_kmh": f"{vit:.1f}",
+            "Cadence": int(round(cad)),
+            "FC": int(round(fc)),
+            "Puissance": int(round(pwr)),
             "Durée": f"{int(time_h)}h {int((time_h - int(time_h)) * 60):02d}min"
         })
     
