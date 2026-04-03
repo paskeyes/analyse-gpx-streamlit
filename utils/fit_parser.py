@@ -210,8 +210,8 @@ def parse_fit_and_compute(uploaded_file):
     merged_climbs = []
     current = None
 
-    MAX_REPLAT_DIST = 150.0    # m
-    MAX_DESCENTE_DNEG = -3.0   # m
+    MAX_REPLAT_DIST = 300.0    # m
+    MAX_DESCENTE_DNEG = -7.0   # m
 
     for seg in segments:
         if seg["type"] == "montee":
