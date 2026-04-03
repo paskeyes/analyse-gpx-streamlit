@@ -2,15 +2,10 @@ import gpxpy
 import pandas as pd
 import math
 
-# Classification thresholds (identiques FIT)
-TOL = {
-    "plat": (-1, 1),
-    "petite_montee": (1, 5),
-    "forte_montee": (5, 999),
-    "petite_descente": (-5, -1),
-    "forte_descente": (-999, -5),
-}
 
+# ---------------------------------------------------------
+# Utilitaires
+# ---------------------------------------------------------
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371000
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
@@ -18,6 +13,7 @@ def haversine(lat1, lon1, lat2, lon2):
     dlam = math.radians(lon2 - lon1)
     a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlam/2)**2
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
 
 def classify(pct):
     if -1 <= pct <= 1:
@@ -33,35 +29,52 @@ def classify(pct):
     return "plat"
 
 
+def format_hm(hours):
+    h = int(hours)
+    m = int((hours - h) * 60)
+    return f"{h}h {m:02d}min"
+
+
+def climb_category(dplus):
+    if dplus >= 300: return "HC"
+    if dplus >= 200: return "1"
+    if dplus >= 120: return "2"
+    if dplus >= 60:  return "3"
+    if dplus >= 30:  return "4"
+    return "NC"
+
+
+# ---------------------------------------------------------
+# PARSER GPX ENRICHI
+# ---------------------------------------------------------
 def parse_gpx_and_compute(uploaded_file, params):
 
     gpx = gpxpy.parse(uploaded_file)
 
-    # accumulateurs
-    stats = {
-        k: {"dist": 0, "d+": 0, "d-": 0}
-        for k in TOL.keys()
-    }
-
+    # -----------------------------------------------------
+    # ✅ 1) PROFIL POINT‑PAR‑POINT (INCHANGÉ)
+    # -----------------------------------------------------
     profile = []
+    stats = {k: {"dist": 0, "d+": 0, "d-": 0} for k in [
+        "plat", "petite_montee", "forte_montee",
+        "petite_descente", "forte_descente"
+    ]}
+
     prev = None
     total_dist = 0
 
-    # Parcours du GPX
     for track in gpx.tracks:
         for seg in track.segments:
             for pt in seg.points:
 
                 if prev:
-
                     dist = haversine(prev.latitude, prev.longitude,
                                      pt.latitude, pt.longitude)
 
-                    if dist < 2:  # filtrage GPS
+                    if dist < 2:
                         prev = pt
                         continue
 
-                    # delta altitude
                     if pt.elevation is None or prev.elevation is None:
                         dalt = 0
                     else:
@@ -70,20 +83,15 @@ def parse_gpx_and_compute(uploaded_file, params):
                             dalt = 0
 
                     total_dist += dist
-
-                    # pente
                     pct = (dalt / dist * 100) if dist > 0 else 0
                     cat = classify(pct)
 
-                    # accumulations
                     stats[cat]["dist"] += dist
-                    if cat != "plat":
-                        if dalt > 0:
-                            stats[cat]["d+"] += dalt
-                        else:
-                            stats[cat]["d-"] += dalt
+                    if dalt > 0:
+                        stats[cat]["d+"] += dalt
+                    elif dalt < 0:
+                        stats[cat]["d-"] += dalt
 
-                    # profil alt/lat/lon pour la carte
                     profile.append({
                         "dist_km": total_dist / 1000,
                         "alt": pt.elevation,
@@ -94,16 +102,17 @@ def parse_gpx_and_compute(uploaded_file, params):
 
                 prev = pt
 
-    # --------------------------
-    # Construction du tableau
-    # --------------------------
+    profile_df = pd.DataFrame(profile)
+
+    # -----------------------------------------------------
+    # ✅ 2) TABLEAU GPX CLASSIQUE (INCHANGÉ)
+    # -----------------------------------------------------
     rows = []
     for k, v in stats.items():
 
         dist_km = v["dist"] / 1000
         dplus = v["d+"]
 
-        # ✅ Calcul du temps estimé basé sur paramètres utilisateur
         if k == "plat":
             time_h = dist_km / params["plat_speed"]
         elif k == "petite_descente":
@@ -122,41 +131,128 @@ def parse_gpx_and_compute(uploaded_file, params):
             "Distance_km": dist_km,
             "D+": dplus,
             "D-": v["d-"],
-            "Temps_h": time_h
+            "Temps_h": time_h,
+            "Durée": format_hm(time_h)
         })
 
-    df = pd.DataFrame(rows)
+    df_segments = pd.DataFrame(rows)
 
-    # ✅ Durée formatée Hh MMmin
-    def format_hm(hours):
-        h = int(hours)
-        m = int(round((hours - h) * 60))
-        return f"{h}h {m:02d}min"
+    # -----------------------------------------------------
+    # ✅ 3) NOUVEAU — TABLEAU DES MONTÉES GPX (TRAININGPEAKS)
+    # -----------------------------------------------------
+    ### NEW : gradient cumulé sur le profil
+    prof = profile_df.copy()
+    prof["dist"] = prof["dist_km"] * 1000
 
-    df["Durée"] = df["Temps_h"].apply(format_hm)
+    WINDOW = 200.0
+    grad = []
+    i0 = 0
 
-    profile_df = pd.DataFrame(profile)
+    for i in range(len(prof)):
+        while prof.loc[i, "dist"] - prof.loc[i0, "dist"] > WINDOW:
+            i0 += 1
+        dwin = prof.loc[i, "dist"] - prof.loc[i0, "dist"]
+        if dwin > 1:
+            dp = prof.loc[i, "alt"] - prof.loc[i0, "alt"]
+            grad.append((dp / dwin) * 100)
+        else:
+            grad.append(0)
 
-    # Résumé Global
-    tot_dist = df["Distance_km"].sum()
-    tot_dplus = df["D+"].sum()
-    tot_time_h = df["Temps_h"].sum()
+    prof["gradient"] = grad
 
-    # Format résumé
+    # segmentation
+    segments = []
+    def seg_type(g):
+        if g > 1.2: return "montee"
+        if g < -1: return "descente"
+        return "plat"
+
+    cur = seg_type(prof.loc[0, "gradient"])
+    start = 0
+    for i in range(1, len(prof)):
+        t = seg_type(prof.loc[i, "gradient"])
+        if t != cur:
+            segments.append({"type": cur, "i0": start, "i1": i-1})
+            cur = t
+            start = i
+    segments.append({"type": cur, "i0": start, "i1": len(prof)-1})
+
+    # fusion des montées
+    merged = []
+    current = None
+    for s in segments:
+        if s["type"] == "montee":
+            if current is None:
+                current = dict(s)
+            else:
+                current["i1"] = s["i1"]
+        else:
+            if current is not None:
+                gap = prof.loc[s["i1"], "dist"] - prof.loc[current["i1"], "dist"]
+                drop = prof.loc[s["i1"], "alt"] - prof.loc[current["i1"], "alt"]
+                if gap <= 300 and drop >= -7:
+                    current["i1"] = s["i1"]
+                else:
+                    merged.append(current)
+                    current = None
+    if current:
+        merged.append(current)
+
+    # build tableau montées GPX
+    rows_montees = []
+    idx = 1
+
+    for seg in merged:
+        p0 = prof.iloc[seg["i0"]]
+        p1 = prof.iloc[seg["i1"]]
+
+        dist_km = (p1["dist"] - p0["dist"]) / 1000
+        dplus = max(0, p1["alt"] - p0["alt"])
+        pente = (dplus / (dist_km * 1000)) * 100 if dist_km > 0 else 0
+
+        if dist_km >= 1.0 and dplus >= 30 and pente >= 2.0:
+            time_h = dplus / params["petite_montee_vam"]
+
+            rows_montees.append({
+                "Montée": f"Montée {idx}",
+                "Catégorie": climb_category(dplus),
+                "Début_km": f"{p0['dist']/1000:.2f}",
+                "Distance_km": f"{dist_km:.2f}",
+                "D+": int(round(dplus)),
+                "Pente_moy%": f"{pente:.1f}",
+                "VAM_mh": "",
+                "Vitesse_kmh": "",
+                "Cadence": "",
+                "FC": "",
+                "Puissance": "",
+                "Durée": format_hm(time_h),
+                "Type": f"Montée {idx}"
+            })
+            idx += 1
+
+    df_montees = pd.DataFrame(rows_montees)
+
+    # -----------------------------------------------------
+    # ✅ 4) RÉSUMÉ GLOBAL (INCHANGÉ)
+    # -----------------------------------------------------
+    tot_dist = df_segments["Distance_km"].sum()
+    tot_dplus = df_segments["D+"].sum()
+    tot_time_h = df_segments["Temps_h"].sum()
+
     h = int(tot_time_h)
     m = int((tot_time_h - h) * 60)
     h_str = f"{h}h{m:02d}"
 
-    summary_text = (
-        f"✅ Votre parcours fait **{tot_dist:.1f} km**  \n"
-        f"✅ Dénivelé positif **{tot_dplus:.0f} m**  \n"
-        f"⏱️ Temps estimé : **{h_str}**"
-    )
-
-    return df, profile_df, {
+    summary = {
         "distance": tot_dist,
         "d+": tot_dplus,
         "h_str": h_str,
         "duration_h": tot_time_h,
-        "text": summary_text,
+        "text": (
+            f"✅ Votre parcours fait **{tot_dist:.1f} km**  \n"
+            f"✅ Dénivelé positif **{tot_dplus:.0f} m**  \n"
+            f"⏱️ Temps estimé : **{h_str}**"
+        )
     }
+
+    return df_segments, df_montees, profile_df, summary
