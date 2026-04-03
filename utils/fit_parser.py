@@ -248,7 +248,7 @@ def parse_fit_and_compute(uploaded_file):
     detailed_climbs = []
     
     MIN_CLIMB_DIST_KM = 1.0     # km
-    MIN_CLIMB_DPLUS = 30.0      # m
+    MIN_CLIMB_DPLUS = 25.0      # m
     MIN_AVG_GRADE = 2.0         # %
     
     for seg in merged_climbs:
