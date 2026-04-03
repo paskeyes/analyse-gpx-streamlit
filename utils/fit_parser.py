@@ -260,29 +260,59 @@ def parse_fit_and_compute(uploaded_file):
         ):
             detailed_climbs.append(seg)
 
+
     # ---------------------------------------------------------
-    # 5bis) TABLEAU DÉTAILLÉ DES VRAIES MONTÉES
+    # 5bis) TABLEAU DÉTAILLÉ DES VRAIES MONTÉES (ENRICHI)
     # ---------------------------------------------------------
+    
+    def climb_category(dplus):
+        if dplus >= 300:
+            return "HC"
+        elif dplus >= 200:
+            return "1"
+        elif dplus >= 120:
+            return "2"
+        elif dplus >= 60:
+            return "3"
+        elif dplus >= 30:
+            return "4"
+        else:
+            return "NC"
+    
+    
     rows_detail = []
-
+    
     for i, seg in enumerate(detailed_climbs, start=1):
+    
         dist, dplus, dminus, time_h, moving_h, vit, cad, fc, pwr = seg_metrics(seg)
-
+    
+        # sécurité
+        if time_h <= 0 or dist <= 0:
+            continue
+    
+        pente_moy = round((dplus / (dist * 1000)) * 100, 1)
+        vam = dplus / time_h
+        start_km = round(prof.iloc[seg["i0"]]["dist"] / 1000, 2)
+        cat = climb_category(dplus)
+    
         rows_detail.append({
             "Montée": f"Montée {i}",
-            "Distance_km": dist,
-            "D+": dplus,
-            "Pente_moy%": (dplus / (dist * 1000)) * 100 if dist > 0 else 0,
-            "Vitesse_kmh": vit,
-            "Cadence": cad,
-            "FC": fc,
-            "Puissance": pwr,
-            "Durée_h": time_h
+            "Catégorie": cat,
+            "Début_km": start_km,
+            "Distance_km": round(dist, 2),
+            "D+": round(dplus),
+            "Pente_moy%": pente_moy,
+            "VAM_mh": round(vam),
+            "Vitesse_kmh": round(vit, 2),
+            "Cadence": round(cad),
+            "FC": round(fc),
+            "Puissance": round(pwr),
+            "Durée": f"{int(time_h)}h {int((time_h - int(time_h)) * 60):02d}min"
         })
-
+    
     df_detail = pd.DataFrame(rows_detail)
-    df_detail["Durée"] = df_detail["Durée_h"].apply(
-        lambda h: f"{int(h)}h {int((h - int(h)) * 60):02d}min"
+#old    df_detail["Durée"] = df_detail["Durée_h"].apply(
+#        lambda h: f"{int(h)}h {int((h - int(h)) * 60):02d}min"
     )
 
     # ---------------------------------------------------------
