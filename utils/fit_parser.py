@@ -13,7 +13,7 @@ def haversine(lat1, lon1, lat2, lon2):
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
     dlam = math.radians(lon2 - lon1)
-    a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlam/2)**2
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlam / 2) ** 2
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
@@ -54,11 +54,11 @@ def parse_fit_and_compute(uploaded_file):
             continue
 
         raw.append({
-            "lat": d["position_lat"]*(180/2**31),
-            "lon": d["position_long"]*(180/2**31),
+            "lat": d["position_lat"] * (180 / 2 ** 31),
+            "lon": d["position_long"] * (180 / 2 ** 31),
             "alt": d.get("enhanced_altitude", d.get("altitude", None)),
             "ts": d.get("timestamp", None),
-            "speed": (d.get("speed",0)) * 3.6,
+            "speed": d.get("speed", 0) * 3.6,  # km/h
             "cad": d.get("cadence", None),
             "fc": d.get("heart_rate", None),
             "pwr": d.get("power", None),
@@ -72,21 +72,19 @@ def parse_fit_and_compute(uploaded_file):
     # FIX ALTITUDE
     # --------------------------
     alts = fix_altitudes([p["alt"] for p in raw])
-    for i,p in enumerate(raw):
+    for i, p in enumerate(raw):
         p["alt"] = alts[i]
 
     # --------------------------
     # DÉTECTION MOUVEMENT
-    # moving = vitesse > 1 km/h (Strava-like stable)
+    # (Strava-like stable)
     # --------------------------
     for p in raw:
         p["moving"] = p["speed"] > 1.0
 
-
     # ---------------------------------------------------------
     # 1) CONSTRUCTION DU PROFIL (distance cumulée + dalt)
     # ---------------------------------------------------------
-
     profile = []
     total_dist = 0
     prev = raw[0]
@@ -124,18 +122,17 @@ def parse_fit_and_compute(uploaded_file):
     # ---------------------------------------------------------
     # 2) CALCUL DU GRADIENT CUMULATIF SUR 200 m
     # ---------------------------------------------------------
-
-    WINDOW = 200.0  # 200 m TrainingPeaks
+    WINDOW = 200.0  # TrainingPeaks-like
     grad = []
     i0 = 0
 
     for i in range(len(prof)):
-        while prof.loc[i,"dist"] - prof.loc[i0,"dist"] > WINDOW:
+        while prof.loc[i, "dist"] - prof.loc[i0, "dist"] > WINDOW:
             i0 += 1
 
-        dwin = prof.loc[i,"dist"] - prof.loc[i0,"dist"]
+        dwin = prof.loc[i, "dist"] - prof.loc[i0, "dist"]
         if dwin > 1:
-            dp = prof.loc[i,"alt"] - prof.loc[i0,"alt"]
+            dp = prof.loc[i, "alt"] - prof.loc[i0, "alt"]
             pct = (dp / dwin) * 100
         else:
             pct = 0
@@ -145,10 +142,9 @@ def parse_fit_and_compute(uploaded_file):
     prof["gradient"] = grad
 
     # ---------------------------------------------------------
-    # 3) SEGMENTATION PAR GRADIENT CUMULATIF
+    # 3) SEGMENTATION PRIMAIRE PAR GRADIENT
     # ---------------------------------------------------------
     segments = []
-    current = {"type": None, "idx_start": 0}
 
     def seg_type_from_grad(g):
         if g > 1.2:
@@ -157,152 +153,184 @@ def parse_fit_and_compute(uploaded_file):
             return "descente"
         return "plat"
 
-    prev_type = seg_type_from_grad(prof.loc[0,"gradient"])
+    current_type = seg_type_from_grad(prof.loc[0, "gradient"])
+    idx_start = 0
 
-    for i in range(1,len(prof)):
-        t = seg_type_from_grad(prof.loc[i,"gradient"])
-        if t != prev_type:
-            segments.append({"type": prev_type,
-                             "i0": current["idx_start"],
-                             "i1": i-1})
-            current = {"type": t, "idx_start": i}
-            prev_type = t
+    for i in range(1, len(prof)):
+        t = seg_type_from_grad(prof.loc[i, "gradient"])
+        if t != current_type:
+            segments.append({"type": current_type, "i0": idx_start, "i1": i - 1})
+            current_type = t
+            idx_start = i
 
-    segments.append({"type": prev_type,
-                     "i0": current["idx_start"],
-                     "i1": len(prof)-1})
+    segments.append({"type": current_type, "i0": idx_start, "i1": len(prof) - 1})
 
     # ---------------------------------------------------------
-    # 4) CONSTRUCTION DES "VRAIES MONTÉES" (fusion TrainingPeaks)
+    # FONCTION UTILITAIRE : métriques d’un segment
+    # ---------------------------------------------------------
+    def seg_metrics(seg):
+        p0 = prof.iloc[seg["i0"]]
+        p1 = prof.iloc[seg["i1"]]
+
+        dist = (p1["dist"] - p0["dist"]) / 1000  # km
+        dplus = max(0, p1["alt"] - p0["alt"])
+        dminus = min(0, p1["alt"] - p0["alt"])
+
+        dt = prof.loc[seg["i0"]:seg["i1"], "dt"].sum()
+        time_h = dt / 3600
+
+        moving_dt = prof.loc[seg["i0"]:seg["i1"], "dt"]
+        moving_dt = moving_dt.where(
+            prof.loc[seg["i0"]:seg["i1"], "moving"], 0
+        )
+        moving_h = moving_dt.sum() / 3600
+
+        vit = dist / moving_h if moving_h > 0 else 0
+
+        cad_vals = prof.loc[seg["i0"]:seg["i1"], "cad"]
+        cad_dts = prof.loc[seg["i0"]:seg["i1"], "dt"]
+        fc_vals = prof.loc[seg["i0"]:seg["i1"], "fc"]
+        pwr_vals = prof.loc[seg["i0"]:seg["i1"], "pwr"]
+
+        def wmean(vals, dts):
+            vals = vals.fillna(0)
+            if dts.sum() == 0:
+                return 0
+            return (vals * dts).sum() / dts.sum()
+
+        cad = wmean(cad_vals, cad_dts)
+        fc = wmean(fc_vals, cad_dts)
+        pwr = wmean(pwr_vals, cad_dts)
+
+        return dist, dplus, dminus, time_h, moving_h, vit, cad, fc, pwr
+
+    # ---------------------------------------------------------
+    # 4) FUSION DES MONTÉES (TrainingPeaks)
     # ---------------------------------------------------------
     merged_climbs = []
-    
     current = None
-    
-    MAX_REPLAT_DIST = 150.0   # m
-    MAX_DESCENTE_DNEG = -3.0  # m
-    
+
+    MAX_REPLAT_DIST = 150.0    # m
+    MAX_DESCENTE_DNEG = -3.0   # m
+
     for seg in segments:
-    
         if seg["type"] == "montee":
-    
             if current is None:
-                current = {
-                    "i0": seg["i0"],
-                    "i1": seg["i1"]
-                }
+                current = {"i0": seg["i0"], "i1": seg["i1"]}
             else:
                 current["i1"] = seg["i1"]
-    
         else:
-            # segment non-montant
             if current is not None:
-                # mesurer la coupure
                 p_end = prof.iloc[current["i1"]]
                 p_now = prof.iloc[seg["i1"]]
-    
+
                 gap_dist = p_now["dist"] - p_end["dist"]
                 gap_alt = p_now["alt"] - p_end["alt"]
-    
-                # tolérance de replat / micro-descente
+
                 if gap_dist <= MAX_REPLAT_DIST and gap_alt >= MAX_DESCENTE_DNEG:
                     current["i1"] = seg["i1"]
                 else:
                     merged_climbs.append(current)
                     current = None
-    
-    # fin de boucle
+
     if current is not None:
         merged_climbs.append(current)
 
-
     # ---------------------------------------------------------
-    # 5) FILTRAGE FINAL DES "VRAIES MONTÉES" (TrainingPeaks)
+    # 5) FILTRAGE FINAL DES VRAIES MONTÉES (TrainingPeaks)
     # ---------------------------------------------------------
-    # À ce stade :
-    # - merged_climbs contient des montées fusionnées
-    # - seg_metrics(seg) calcule distance, D+, durée, etc.
-    #
-    # Critères retenus (TrainingPeaks-like) :
-    # - distance minimale : 300 m
-    # - D+ minimal : 10 m
-    # - pente moyenne globale positive
-    # ---------------------------------------------------------
-    
     detailed_climbs = []
-    
-    MIN_CLIMB_DIST_KM = 0.300   # 300 m
-    MIN_CLIMB_DPLUS = 10.0      # 10 m
-    MIN_AVG_GRADE = 1.2         # % (cohérent avec TP / WKO)
-    
+
+    MIN_CLIMB_DIST_KM = 0.300
+    MIN_CLIMB_DPLUS = 10.0
+    MIN_AVG_GRADE = 1.2
+
     for seg in merged_climbs:
-    
-        # Calcul des métriques de la montée candidate
         dist, dplus, dminus, time_h, moving_h, vit, cad, fc, pwr = seg_metrics(seg)
-    
-        # Sécurité : éviter division par zéro
+
         if dist <= 0:
             continue
-    
-        # Pente moyenne réelle de la montée
+
         avg_grade = (dplus / (dist * 1000)) * 100
-    
-        # Application des critères TrainingPeaks
+
         if (
-            dist >= MIN_CLIMB_DIST_KM and
-            dplus >= MIN_CLIMB_DPLUS and
-            avg_grade >= MIN_AVG_GRADE
+            dist >= MIN_CLIMB_DIST_KM
+            and dplus >= MIN_CLIMB_DPLUS
+            and avg_grade >= MIN_AVG_GRADE
         ):
             detailed_climbs.append(seg)
 
+    # ---------------------------------------------------------
+    # 5bis) TABLEAU DÉTAILLÉ DES VRAIES MONTÉES
+    # ---------------------------------------------------------
+    rows_detail = []
 
-    
+    for i, seg in enumerate(detailed_climbs, start=1):
+        dist, dplus, dminus, time_h, moving_h, vit, cad, fc, pwr = seg_metrics(seg)
+
+        rows_detail.append({
+            "Montée": f"Montée {i}",
+            "Distance_km": dist,
+            "D+": dplus,
+            "Pente_moy%": (dplus / (dist * 1000)) * 100 if dist > 0 else 0,
+            "Vitesse_kmh": vit,
+            "Cadence": cad,
+            "FC": fc,
+            "Puissance": pwr,
+            "Durée_h": time_h
+        })
+
+    df_detail = pd.DataFrame(rows_detail)
+    df_detail["Durée"] = df_detail["Durée_h"].apply(
+        lambda h: f"{int(h)}h {int((h - int(h)) * 60):02d}min"
+    )
+
     # ---------------------------------------------------------
     # 6) TABLEAU GLOBAL (Montées / Plats / Descentes)
     # ---------------------------------------------------------
-
     def total_for_type(t):
         dist = 0
-        dplus=0
-        dminus=0
-        time_h=0
-        moving_h=0
-        cad_vals=[]
-        cad_dts=[]
-        fc_vals=[]
-        pwr_vals=[]
+        dplus = 0
+        dminus = 0
+        time_h = 0
+        moving_h = 0
+        cad_vals = []
+        cad_dts = []
+        fc_vals = []
+        pwr_vals = []
+
         for s in segments:
-            if s["type"]==t:
+            if s["type"] == t:
                 r = seg_metrics(s)
-                dist  += r[0]
+                dist += r[0]
                 dplus += r[1]
-                dminus+= r[2]
-                time_h+= r[3]
-                moving_h+=r[4]
-                # pour moyennes pondérées :
-                i0,i1 = s["i0"], s["i1"]
-                dts  = prof.loc[i0:i1,"dt"]
-                cad_vals.append(prof.loc[i0:i1,"cad"].fillna(0)*dts)
-                fc_vals.append(prof.loc[i0:i1,"fc"].fillna(0)*dts)
-                pwr_vals.append(prof.loc[i0:i1,"pwr"].fillna(0)*dts)
+                dminus += r[2]
+                time_h += r[3]
+                moving_h += r[4]
+
+                i0, i1 = s["i0"], s["i1"]
+                dts = prof.loc[i0:i1, "dt"]
+
+                cad_vals.append(prof.loc[i0:i1, "cad"].fillna(0) * dts)
+                fc_vals.append(prof.loc[i0:i1, "fc"].fillna(0) * dts)
+                pwr_vals.append(prof.loc[i0:i1, "pwr"].fillna(0) * dts)
                 cad_dts.append(dts)
-        if dist>0:
-            cad = (pd.concat(cad_vals).sum() / pd.concat(cad_dts).sum()) if cad_vals else 0
-            fc  = (pd.concat(fc_vals).sum()  / pd.concat(cad_dts).sum()) if fc_vals else 0
-            pwr = (pd.concat(pwr_vals).sum() / pd.concat(cad_dts).sum()) if pwr_vals else 0
+
+        if dist > 0 and cad_vals:
+            cad = pd.concat(cad_vals).sum() / pd.concat(cad_dts).sum()
+            fc = pd.concat(fc_vals).sum() / pd.concat(cad_dts).sum()
+            pwr = pd.concat(pwr_vals).sum() / pd.concat(cad_dts).sum()
         else:
-            cad=fc=pwr=0
+            cad = fc = pwr = 0
 
-        vit = dist/moving_h if moving_h>0 else 0
+        vit = dist / moving_h if moving_h > 0 else 0
 
-        return dist,dplus,dminus,vit,cad,fc,pwr,time_h
+        return dist, dplus, dminus, vit, cad, fc, pwr, time_h
 
-    rows_global=[]
-    for t,label in [("montee","Montées"),
-                    ("plat","Plats"),
-                    ("descente","Descentes")]:
+    rows_global = []
 
-        dist,dplus,dminus,vit,cad,fc,pwr,time_h = total_for_type(t)
+    for t, label in [("montee", "Montées"), ("plat", "Plats"), ("descente", "Descentes")]:
+        dist, dplus, dminus, vit, cad, fc, pwr, time_h = total_for_type(t)
         rows_global.append({
             "Type": label,
             "Distance_km": dist,
@@ -316,9 +344,11 @@ def parse_fit_and_compute(uploaded_file):
         })
 
     df_global = pd.DataFrame(rows_global)
-    df_global["Durée"] = df_global["Durée_h"].apply(lambda h: f"{int(h)}h {int((h-int(h))*60):02d}min")
+    df_global["Durée"] = df_global["Durée_h"].apply(
+        lambda h: f"{int(h)}h {int((h - int(h)) * 60):02d}min"
+    )
 
     # ---------------------------------------------------------
-    # FIN — retour triple
+    # FIN
     # ---------------------------------------------------------
     return df_global, df_detail, prof
