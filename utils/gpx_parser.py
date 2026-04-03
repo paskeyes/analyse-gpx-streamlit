@@ -210,7 +210,7 @@ def parse_gpx_and_compute(uploaded_file, params):
         dplus = max(0, p1["alt"] - p0["alt"])
         pente = (dplus / (dist_km * 1000)) * 100 if dist_km > 0 else 0
 
-        if dist_km >= 0.8 and dplus >= 30 and pente >= 2.0:
+        if dist_km >= 1.0 and dplus >= 30 and pente >= 2.0:
             time_h = dplus / params["petite_montee_vam"]
 
             rows_montees.append({
