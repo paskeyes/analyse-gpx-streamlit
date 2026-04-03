@@ -70,7 +70,9 @@ def style_table(df):
 
     # 🔥 VITESSE MOYENNE TOTALE = distance_totale / durée_totale
     if "Vitesse_kmh" in df2 and "Durée" in df2:
-        dist_tot = df2["Distance_km"].sum()
+        #dist_tot = df2["Distance_km"].sum()       
+        dist_vals = pd.to_numeric(df2["Distance_km"], errors="coerce")
+        dist_tot = dist_vals.sum()
         min_tot = sum(hm_to_minutes(v) for v in df2["Durée"])
         if min_tot > 0:
             total["Vitesse_kmh"] = round(dist_tot / (min_tot / 60), 2)
@@ -84,7 +86,7 @@ def style_table(df):
     # 🔥 Moyennes FIT (cadence, FC, puissance)
     for col in ["Cadence", "FC", "Puissance", "Equilibre_DG"]:
         if col in df2:
-            clean_vals = df2[col].replace("", np.nan).dropna().astype(float)
+            clean_vals = pd.to_numeric(df2[col], errors="coerce").dropna()
             total[col] = round(clean_vals.mean(), 1) if len(clean_vals) else ""
 
     # TYPE = TOTAL
