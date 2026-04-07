@@ -28,27 +28,27 @@ def color_by_pct(pct):
 # ------------------------------
 def build_map(profile_df):
     """
-    Construit une carte Folium.
+    Construit une carte Folium centrée automatiquement sur le tracé GPX/FIT.
     profile_df DOIT contenir :
       - lat
       - lon
       - dist_km
-      - pct (obligatoire pour la coloration)
+      - pct (optionnel pour la coloration)
     """
 
-    # Si pas de points → carte vide
+    # Cas vide → fallback propre
     if profile_df.empty:
         return folium.Map(location=[44.84, -0.58], zoom_start=12)
 
-    # Tri distance
+    # Tri par distance
     profile_df = profile_df.sort_values("dist_km")
 
-    # Centre carte
-    lat0 = profile_df["lat"].iloc[0]
-    lon0 = profile_df["lon"].iloc[0]
-    m = folium.Map(location=[lat0, lon0], zoom_start=13)
+    # ✅ Créer la carte sans zoom ni centre forcés
+    m = folium.Map(
+        tiles="OpenStreetMap",
+        control_scale=True
+    )
 
-    # Vérifier si la pente est fournie
     use_pct = "pct" in profile_df.columns
 
     # Tracé segment par segment
@@ -56,9 +56,7 @@ def build_map(profile_df):
         p1 = profile_df.iloc[i - 1]
         p2 = profile_df.iloc[i]
 
-        # ✅ NE PAS recalculer la pente ici !
         pct = p2["pct"] if use_pct else 0
-
         color = color_by_pct(pct)
 
         PolyLine(
@@ -68,10 +66,18 @@ def build_map(profile_df):
             opacity=0.9
         ).add_to(m)
 
-    # Ajuster zoom automatiquement
-    m.fit_bounds([
-        [profile_df["lat"].min(), profile_df["lon"].min()],
-        [profile_df["lat"].max(), profile_df["lon"].max()]
-    ])
+    # ✅ Zoom automatique EXACT sur le tracé
+    lat_min, lat_max = profile_df["lat"].min(), profile_df["lat"].max()
+    lon_min, lon_max = profile_df["lon"].min(), profile_df["lon"].max()
+
+    # Cas 1 seul point → zoom local
+    if lat_min == lat_max and lon_min == lon_max:
+        m.location = [lat_min, lon_min]
+        m.zoom_start = 15
+    else:
+        m.fit_bounds(
+            [[lat_min, lon_min], [lat_max, lon_max]],
+            padding=(30, 30)  # marges confort visuelles
+        )
 
     return m
