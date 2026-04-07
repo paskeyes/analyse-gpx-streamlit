@@ -158,28 +158,40 @@ def parse_fit_and_compute(uploaded_file):
     prof["gradient"] = grad
 
     # ---------------------------------------------------------
-    # 2bis) ✅ PENTE INSTANTANÉE POINT‑PAR‑POINT (POUR COULEURS CARTE)
-    # Inspiré du GPX_PARSER : pct = dalt / dist * 100 + classification
+    # 2bis) ✅ PENTE INSTANTANÉE (pct) POUR LA CARTE (GPX-like)
     # ---------------------------------------------------------
 
-    # distance et altitude différentielles entre points consécutifs
-    ddist = prof["dist"].diff()
-    dalt = prof["alt"].diff()
+    # On travaille en mètres : soit prof["dist"] existe, soit on reconstruit depuis dist_km
+    if "dist" in prof.columns:
+        dist_m = prof["dist"].astype(float)
+    else:
+        # Ton debug montre dist_km présent : on reconstruit dist_m
+        dist_m = prof["dist_km"].astype(float) * 1000.0
 
-    # même philosophie que GPX : micro-bruit altitude ignoré
-    # (dans FIT l'altitude est déjà lissée, mais on garde ce garde-fou)
-    dalt = dalt.where(dalt.abs() >= 1.8, 0.0)
+    alt_m = prof["alt"].astype(float)
 
-    # éviter les pentes absurdes quand la distance est trop faible
-    # GPX utilise dist < 2 m => ignore; ici on force pct=0 dans ce cas
-    pct = (dalt / ddist * 100).where(ddist >= 2.0, 0.0)
-    pct = pct.replace([np.inf, -np.inf], 0.0).fillna(0.0)
+    pct_list = [0.0] * len(prof)
+    prev_i = 0
 
-    prof["pct"] = pct
-    prof["cat"] = prof["pct"].apply(classify)
+    for i in range(1, len(prof)):
+        d = float(dist_m.iloc[i] - dist_m.iloc[prev_i])
 
-    # alignement format GPX (utile si le front attend dist_km)
-    prof["dist_km"] = prof["dist"] / 1000.0
+        # Comme GPX : si < 2 m, on n'utilise pas ce point pour calculer une pente
+        if d < 2.0:
+            pct_list[i] = 0.0
+            continue
+
+        da = float(alt_m.iloc[i] - alt_m.iloc[prev_i])
+
+        # Comme GPX : filtre micro-bruit altitude
+        if abs(da) < 1.8:
+            da = 0.0
+
+        pct_list[i] = (da / d) * 100.0 if d > 0 else 0.0
+        prev_i = i
+
+    prof["pct"] = pd.to_numeric(pct_list, errors="coerce").fillna(0.0)
+
     
     # ---------------------------------------------------------
     # 3) SEGMENTATION PRIMAIRE PAR GRADIENT
