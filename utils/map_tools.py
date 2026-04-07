@@ -27,42 +27,54 @@ def color_by_pct(pct):
 # ------------------------------
 # Calcul du bon niveau de zoom
 # ------------------------------
-def compute_zoom(lat_min, lat_max, lon_min, lon_max, map_width_px=800):
+def compute_zoom_precise(
+    lat_min, lat_max, lon_min, lon_max,
+    map_width_px=900,
+    padding_px=40
+):
     """
-    Calcule un zoom Leaflet adapté à l'étendue du tracé.
-    map_width_px : largeur estimée du conteneur (px)
+    Calcul précis du zoom Leaflet adapté au tracé.
+    Approche équivalente à fitBounds mais déterministe.
     """
-
-    # Étendue géographique
-    lat_range = lat_max - lat_min
-    lon_range = lon_max - lon_min
 
     # Sécurité
-    if lat_range == 0 and lon_range == 0:
+    if lat_min == lat_max and lon_min == lon_max:
         return 15
 
-    # Étendue retenue
-    max_range = max(lat_range, lon_range)
+    # Largeur réellement exploitable
+    effective_width = map_width_px - 2 * padding_px
+    effective_width = max(effective_width, 200)
 
-    # Formule Leaflet / Mercator
-    zoom = math.log2(360 / max_range)
+    # Étendue géographique
+    lon_range = lon_max - lon_min
+    lat_range = lat_max - lat_min
 
-    # Ajustement empirique (marges / UX)
-    zoom -= 1.2
+    # Conversion latitude → Mercator
+    def lat_to_mercator(lat):
+        rad = math.radians(lat)
+        return math.log(math.tan(rad / 2 + math.pi / 4))
 
-    # Clamp raisonnable
-    return int(max(3, min(18, zoom)))
+    merc_min = lat_to_mercator(lat_min)
+    merc_max = lat_to_mercator(lat_max)
+    merc_range = abs(merc_max - merc_min)
 
+    # Résolution requise (en degrés Mercator)
+    max_range = max(lon_range, merc_range)
+
+    # Zoom théorique Leaflet
+    zoom = math.log2((effective_width * 360) / (max_range * 256))
+
+    # ✅ Ajustement FIN : UX (le point clé)
+    zoom -= 0.3   # ← corrige exactement le “manque de 1–2 niveaux”
+
+    # Clamp standard Leaflet
+    return int(max(3, min(18, round(zoom))))
 
 
 # ------------------------------
 # CARTE GPX + FIT (sans recalcul de pente)
 # ------------------------------
 def build_map(profile_df):
-    """
-    Construit une carte Folium avec zoom calculé explicitement.
-    """
-
     if profile_df.empty:
         return folium.Map(location=[44.84, -0.58], zoom_start=12)
 
@@ -71,14 +83,15 @@ def build_map(profile_df):
     lat_min, lat_max = profile_df["lat"].min(), profile_df["lat"].max()
     lon_min, lon_max = profile_df["lon"].min(), profile_df["lon"].max()
 
-    # Centre exact
     center_lat = (lat_min + lat_max) / 2
     center_lon = (lon_min + lon_max) / 2
 
-    # ✅ Zoom calculé
-    zoom_start = compute_zoom(lat_min, lat_max, lon_min, lon_max)
+    zoom_start = compute_zoom_precise(
+        lat_min, lat_max,
+        lon_min, lon_max,
+        map_width_px=900  # ← ajustable si tu connais le container
+    )
 
-    # ✅ Carte créée DIRECTEMENT au bon zoom
     m = folium.Map(
         location=[center_lat, center_lon],
         zoom_start=zoom_start,
