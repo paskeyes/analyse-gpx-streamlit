@@ -18,6 +18,22 @@ def haversine(lat1, lon1, lat2, lon2):
 
 
 # ---------------------------------------------------------
+# Classification des pentes
+# ---------------------------------------------------------
+def classify(pct):
+    if -1 <= pct <= 1:
+        return "plat"
+    if 1 < pct <= 5:
+        return "petite_montee"
+    if pct > 5:
+        return "forte_montee"
+    if -5 <= pct < -1:
+        return "petite_descente"
+    if pct < -5:
+        return "forte_descente"
+    return "plat"
+
+# ---------------------------------------------------------
 # LISSAGE ALTITUDE (inchangé)
 # ---------------------------------------------------------
 def fix_altitudes(raw_alts):
@@ -141,6 +157,30 @@ def parse_fit_and_compute(uploaded_file):
 
     prof["gradient"] = grad
 
+    # ---------------------------------------------------------
+    # 2bis) ✅ PENTE INSTANTANÉE POINT‑PAR‑POINT (POUR COULEURS CARTE)
+    # Inspiré du GPX_PARSER : pct = dalt / dist * 100 + classification
+    # ---------------------------------------------------------
+
+    # distance et altitude différentielles entre points consécutifs
+    ddist = prof["dist"].diff()
+    dalt = prof["alt"].diff()
+
+    # même philosophie que GPX : micro-bruit altitude ignoré
+    # (dans FIT l'altitude est déjà lissée, mais on garde ce garde-fou)
+    dalt = dalt.where(dalt.abs() >= 1.8, 0.0)
+
+    # éviter les pentes absurdes quand la distance est trop faible
+    # GPX utilise dist < 2 m => ignore; ici on force pct=0 dans ce cas
+    pct = (dalt / ddist * 100).where(ddist >= 2.0, 0.0)
+    pct = pct.replace([np.inf, -np.inf], 0.0).fillna(0.0)
+
+    prof["pct"] = pct
+    prof["cat"] = prof["pct"].apply(classify)
+
+    # alignement format GPX (utile si le front attend dist_km)
+    prof["dist_km"] = prof["dist"] / 1000.0
+    
     # ---------------------------------------------------------
     # 3) SEGMENTATION PRIMAIRE PAR GRADIENT
     # ---------------------------------------------------------
