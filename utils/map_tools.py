@@ -1,4 +1,5 @@
 import folium
+import math
 from folium import PolyLine
 import pandas as pd
 
@@ -24,34 +25,69 @@ def color_by_pct(pct):
 
 
 # ------------------------------
+# Calcul du bon niveau de zoom
+# ------------------------------
+def compute_zoom(lat_min, lat_max, lon_min, lon_max, map_width_px=800):
+    """
+    Calcule un zoom Leaflet adapté à l'étendue du tracé.
+    map_width_px : largeur estimée du conteneur (px)
+    """
+
+    # Étendue géographique
+    lat_range = lat_max - lat_min
+    lon_range = lon_max - lon_min
+
+    # Sécurité
+    if lat_range == 0 and lon_range == 0:
+        return 15
+
+    # Étendue retenue
+    max_range = max(lat_range, lon_range)
+
+    # Formule Leaflet / Mercator
+    zoom = math.log2(360 / max_range)
+
+    # Ajustement empirique (marges / UX)
+    zoom -= 1.2
+
+    # Clamp raisonnable
+    return int(max(3, min(18, zoom)))
+
+
+
+# ------------------------------
 # CARTE GPX + FIT (sans recalcul de pente)
 # ------------------------------
 def build_map(profile_df):
     """
-    Construit une carte Folium centrée automatiquement sur le tracé GPX/FIT.
-    profile_df DOIT contenir :
-      - lat
-      - lon
-      - dist_km
-      - pct (optionnel pour la coloration)
+    Construit une carte Folium avec zoom calculé explicitement.
     """
 
-    # Cas vide → fallback propre
     if profile_df.empty:
         return folium.Map(location=[44.84, -0.58], zoom_start=12)
 
-    # Tri par distance
     profile_df = profile_df.sort_values("dist_km")
 
-    # ✅ Créer la carte sans zoom ni centre forcés
+    lat_min, lat_max = profile_df["lat"].min(), profile_df["lat"].max()
+    lon_min, lon_max = profile_df["lon"].min(), profile_df["lon"].max()
+
+    # Centre exact
+    center_lat = (lat_min + lat_max) / 2
+    center_lon = (lon_min + lon_max) / 2
+
+    # ✅ Zoom calculé
+    zoom_start = compute_zoom(lat_min, lat_max, lon_min, lon_max)
+
+    # ✅ Carte créée DIRECTEMENT au bon zoom
     m = folium.Map(
+        location=[center_lat, center_lon],
+        zoom_start=zoom_start,
         tiles="OpenStreetMap",
         control_scale=True
     )
 
     use_pct = "pct" in profile_df.columns
 
-    # Tracé segment par segment
     for i in range(1, len(profile_df)):
         p1 = profile_df.iloc[i - 1]
         p2 = profile_df.iloc[i]
@@ -65,19 +101,5 @@ def build_map(profile_df):
             weight=5,
             opacity=0.9
         ).add_to(m)
-
-    # ✅ Zoom automatique EXACT sur le tracé
-    lat_min, lat_max = profile_df["lat"].min(), profile_df["lat"].max()
-    lon_min, lon_max = profile_df["lon"].min(), profile_df["lon"].max()
-
-    # Cas 1 seul point → zoom local
-    if lat_min == lat_max and lon_min == lon_max:
-        m.location = [lat_min, lon_min]
-        m.zoom_start = 15
-    else:
-        m.fit_bounds(
-            [[lat_min, lon_min], [lat_max, lon_max]],
-            padding=(30, 30)  # marges confort visuelles
-        )
 
     return m
