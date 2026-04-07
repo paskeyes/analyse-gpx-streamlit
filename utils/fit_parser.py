@@ -189,10 +189,10 @@ def parse_fit_and_compute(uploaded_file):
 
         pct_list[i] = (da / d) * 100.0 if d > 0 else 0.0
         prev_i = i
-
-    prof["pct"] = pd.to_numeric(pct_list, errors="coerce").fillna(0.0)
-
-    
+        
+        # ✅ ICI : pd.Series pour pouvoir faire fillna()
+        prof["pct"] = pd.to_numeric(pd.Series(pct_list, index=prof.index), errors="coerce").fillna(0.0)
+ 
     # ---------------------------------------------------------
     # 3) SEGMENTATION PRIMAIRE PAR GRADIENT
     # ---------------------------------------------------------
