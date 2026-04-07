@@ -230,13 +230,13 @@ if mode == "📈 Analyse FIT":
         # ------------------------------------------------------
         with st.expander("🗺️ Carte interactive FIT"):
             
-            #st.write("FIT columns:", list(profile_fit.columns))
-            #st.write("FIT head:", profile_fit.head(3))
-            #if "pct" in profile_fit.columns:
-            #    st.write("pct describe:", profile_fit["pct"].describe())
-            #    st.write("pct non-plat count (|pct|>1):", int((profile_fit["pct"].abs() > 1).sum()))
-            #else:
-            #    st.error("⚠️ colonne 'pct' absente dans profile_fit")
+            st.write("FIT columns:", list(profile_fit.columns))
+            st.write("FIT head:", profile_fit.head(3))
+            if "pct" in profile_fit.columns:
+                st.write("pct describe:", profile_fit["pct"].describe())
+                st.write("pct non-plat count (|pct|>1):", int((profile_fit["pct"].abs() > 1).sum()))
+            else:
+                st.error("⚠️ colonne 'pct' absente dans profile_fit")
             
             folium_map = build_map(profile_fit)
             st_folium(folium_map, width=700, height=500)
