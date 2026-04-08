@@ -32,7 +32,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-st.title("🚴 Analyse GPX & FIT — Mode Dual")
+st.title("🚴 Analyse GPX & FIT — Mode Dual || par Pask Call rev 1.0")
 
 # ----------------------------------------------------------
 # CHOIX DU MODE
