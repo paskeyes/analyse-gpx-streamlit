@@ -184,7 +184,7 @@ def parse_fit_and_compute(uploaded_file):
         da = float(alt_m.iloc[i] - alt_m.iloc[prev_i])
 
         # Comme GPX : filtre micro-bruit altitude
-        if abs(da) < 1.8:
+        if abs(da) < 0.1:#1.8:
             da = 0.0
 
         pct_list[i] = (da / d) * 100.0 if d > 0 else 0.0
