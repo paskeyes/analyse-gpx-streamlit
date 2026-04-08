@@ -1,101 +1,198 @@
-# 🚴 Application d’analyse GPX & FIT
-### *Prédiction de temps sur parcours + analyse avancée des sorties réelles*
+🚴 Application d’analyse GPX & FIT
+Estimation de parcours et analyse détaillée des sorties réelles (approche TrainingPeaks‑like)
+Cette application Streamlit fournit deux modes complémentaires, basés sur des algorithmes cohérents mais adaptés à la nature des données (GPX vs FIT).
 
-Cette application Streamlit permet :
+✅ Modes disponibles
+🔵 Mode 1 — Estimation GPX (parcours théorique)
 
-✅ **Mode 1 – Estimation GPX**  
-– Analyse un fichier GPX (OpenRunner, Komoot, Garmin…)  
-– Segmente automatiquement le parcours : plat, montées, descentes  
-– Calcule : distances, D+, D−, VAM, vitesse estimée  
-– Produit une **prévision réaliste du temps total**  
-– Affiche :  
-  • tableau synthétique  
-  • profil altimétrique  
-  • carte Folium colorée par pente  
+Analyse d’un fichier GPX (OpenRunner, Komoot, Garmin, etc.)
+Traitement point par point du parcours :
 
-✅ **Mode 2 – Analyse FIT (sortie réelle)**  
-– Analyse un fichier FIT d’une activité réelle (Garmin, Wahoo, Hammerhead, Zwift…)  
-– Segmente selon les mêmes règles de pente qu’en GPX  
-– Calcule :  
-  • vitesse moyenne (km/h)  
-  • VAM (m/h)  
-  • cadence moyenne (rpm)  
-  • fréquence cardiaque moyenne (bpm)  
-  • puissance moyenne (W)  
-  • équilibre droite/gauche (%, 1 décimale)  
-– Affiche :  
-  • tableau complet par type de segment  
-  • profil altimétrique  
-  • carte Folium colorée par pente  
+distance cumulée
+altitude
+pente instantanée (%)
 
----
 
-# ✅ 1. Fonctionnalités en détail
+Conservation intégrale du point‑par‑point pour :
 
-## 🔵 Mode GPX – Estimation d’un parcours
-- Analyse point‑à‑point du fichier GPX  
-- Filtrage du bruit GPS :  
-  • déplacements < 0,5 m ignorés  
-  • variations alt < 1 m ignorées  
-- Classification selon la pente (%) :
-  - **Plat** : -1 → +1  
-  - **Petite montée** : +1 → +5  
-  - **Forte montée** : > +5  
-  - **Petite descente** : -1 → -5  
-  - **Forte descente** : < -5  
-- Calcul de :  
-  • D+, D−  
-  • distances segmentées  
-  • temps estimés selon vitesse/VAM configurables  
-- Affichage :  
-  • tableau stylé coloré  
-  • carte Folium  
-  • profil altitude  
+la carte
+la coloration par pente
+le profil altimétrique
 
----
 
-## 🔵 Mode FIT – Analyse d’une sortie réelle
-- Extraction directe des données FIT :  
-  • position  
-  • altitude  
-  • vitesse  
-  • cadence  
-  • fréquence cardiaque  
-  • puissance  
-  • left/right balance  
-- Même classification par pente que pour GPX  
-- Calcul de métriques par segment :  
-  • distance  
-  • D+ / D−  
-  • temps  
-  • vitesse moyenne  
-  • VAM (montées uniquement)  
-  • cadence moyenne  
-  • FC moyenne  
-  • puissance moyenne  
-  • équilibre droite/gauche  
-- Affichage :  
-  • tableau stylé  
-  • carte interactive  
-  • profil altitude  
+
+📊 Résultats produits
+
+Tableau synthétique GPX par type de terrain :
+
+plat / petites montées / fortes montées
+petites descentes / fortes descentes
+
+
+Calculs :
+
+distances
+D+ / D−
+temps estimés à partir de vitesses et VAM paramétrables
+
+
+Tableau détaillé des montées (GPX) :
+
+détection automatique des montées continues
+identification TrainingPeaks‑like
+durée estimée par montée
+catégories (HC, 1, 2, 3, 4)
+
+
+Affichages :
+
+carte Folium colorée par pente instantanée
+profil altimétrique
+tableaux stylés
+
+
+
+
+🔵 Mode 2 — Analyse FIT (sortie réalisée)
+
+Analyse d’un fichier FIT issu d’une activité réelle
+(Garmin, Wahoo, Hammerhead, Zwift, etc.)
+Extraction directe des données :
+
+position
+altitude barométrique lissée
+vitesse
+cadence
+fréquence cardiaque
+puissance
+équilibre gauche / droite
+
+
+Traitement à haute résolution (≈ 1 Hz), optimisé pour de gros volumes de points
+
+📊 Résultats produits
+
+Tableau global FIT par type de terrain :
+
+distances
+D+ / D−
+durée roulée
+vitesse moyenne réelle
+cadence moyenne
+FC moyenne
+puissance moyenne
+
+
+Tableau détaillé des montées (FIT) :
+
+détection des montées continues par gradient cumulé
+fusion des segments (replats, micro‑descentes tolérées)
+filtrage TrainingPeaks‑like :
+
+distance minimale
+D+ minimal
+pente moyenne minimale
+
+
+métriques par montée :
+
+distance
+D+
+pente moyenne
+VAM réelle
+vitesse
+cadence
+FC
+puissance
+
+
+
+
+Affichages :
+
+carte Folium colorée par pente instantanée
+profil altimétrique FIT
+tableaux stylés
+
+
+
+
+✅ Algorithmes et principes communs (GPX & FIT)
+📐 Calculs de pente
+
+Pente instantanée (pct) :
+
+utilisée uniquement pour la carte
+filtrage adapté au type de données :
+
+GPX : filtrage GPS plus fort
+FIT : filtrage barométrique léger (1 Hz)
+
+
+
+
+Gradient cumulé (fenêtre 200 m) :
+
+utilisé pour la segmentation
+identique en logique GPX et FIT
+
+
+
+⛰️ Détection des montées (TrainingPeaks‑like)
+Pipeline commun :
+
+segmentation primaire par gradient
+fusion des segments montants adjacents :
+
+tolérance sur replats
+tolérance sur micro‑descentes
+
+
+filtrage final par critères globaux :
+
+distance minimale
+D+ minimal
+pente moyenne minimale
+
+
+
+👉 Les seuils sont adaptés entre GPX et FIT pour tenir compte :
+
+de la résolution temporelle
+du bruit altimétrique
+de la nature théorique vs réelle des données
 
 ---
 
 # ✅ 2. Architecture du projet
 
+analyse-gpx-streamlit/
+│
+├── app.py
+│
+├── utils/
+│   ├── gpx_parser.py          # analyse GPX + estimation + montées GPX
+│   ├── fit_parser.py          # analyse FIT + montées FIT optimisées
+│   ├── map_tools.py           # génération carte Folium (pente instantanée)
+│   └── styling.py             # mise en forme tableaux + ligne TOTAL
+│
+└── README.md
 
 
 
+🚧 Roadmap (statut réel)
+✅ À court terme
 
+ X Tableaux détaillés des montées (GPX & FIT)
+ X Carte colorée par pente instantanée
+ X Durées FIT basées sur temps en mouvement
+ X Détection des montées TrainingPeaks‑like
+ X Optimisation complète du parser FIT
 
+🔄 À venir (non implémenté à ce stade)
 
-## 🚧 Roadmap (Fonctionnalités prévues)
-
-### ✅ Court terme (1–2 semaines)
-- [ ] Ajouter légende couleur sur carte
-- [ ] le calcul de durée FIT ne doit pas compter le temps où l'on est à l'arrêt (vitesse = 0) => correction vitesse moy aussi
-- [ ] la carte doit s'ouvrir en zoomant sur l'itinéraire pour avoir la meilleure vue centrée.
-- [ ] sur les deux modes, rajouter un tableau détaillé en indiquant les montées1/2/3... ou plats ou descentes...
-- [ ] ajouter sur le FIT => la courbe de puissance en fonction des km
-- [ ] ajouter sur le FIT => une courbe des VAM en fonction des durées de montées : chaque courbe doit avoir la même couleurs mais avec une nuance entre les numéros de montées, et distinguer petite et grande montée
-- [ ] 
+ - Légende de couleurs sur la carte
+ - Centrage automatique et zoom optimal de l’itinéraire
+ - Courbe puissance / distance (FIT)
+ - Analyse des VAM par montée (comparatif)
+ - Comparaison GPX vs FIT (prévu / réalisé)
