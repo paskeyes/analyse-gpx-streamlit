@@ -136,27 +136,52 @@ def parse_fit_and_compute(uploaded_file):
     prof = pd.DataFrame(profile)
 
     # ---------------------------------------------------------
-    # 2) CALCUL DU GRADIENT CUMULATIF SUR 200 m
+    # 2) CALCUL DU GRADIENT CUMULATIF SUR 200 m NON-OPTIMISE (08/04)
     # ---------------------------------------------------------
-    WINDOW = 200.0  # TrainingPeaks-like
-    grad = []
+    # WINDOW = 200.0  # TrainingPeaks-like
+    # grad = []
+    # i0 = 0
+
+    # for i in range(len(prof)):
+    #     while prof.loc[i, "dist"] - prof.loc[i0, "dist"] > WINDOW:
+    #         i0 += 1
+
+    #     dwin = prof.loc[i, "dist"] - prof.loc[i0, "dist"]
+    #     if dwin > 1:
+    #         dp = prof.loc[i, "alt"] - prof.loc[i0, "alt"]
+    #         pct = (dp / dwin) * 100
+    #     else:
+    #         pct = 0
+
+    #     grad.append(pct)
+
+    # prof["gradient"] = grad
+
+    # ---------------------------------------------------------
+    # 2) CALCUL DU GRADIENT CUMULATIF SUR 200 m OPTIMISE (08/04)
+    # ---------------------------------------------------------
+    WINDOW = 200.0  # m
+    
+    # ✅ Extraction des colonnes une seule fois
+    dist_arr = prof["dist"].values
+    alt_arr = prof["alt"].values
+    
+    grad = np.zeros(len(dist_arr), dtype=float)
     i0 = 0
-
-    for i in range(len(prof)):
-        while prof.loc[i, "dist"] - prof.loc[i0, "dist"] > WINDOW:
+    
+    for i in range(len(dist_arr)):
+        while dist_arr[i] - dist_arr[i0] > WINDOW:
             i0 += 1
-
-        dwin = prof.loc[i, "dist"] - prof.loc[i0, "dist"]
+    
+        dwin = dist_arr[i] - dist_arr[i0]
         if dwin > 1:
-            dp = prof.loc[i, "alt"] - prof.loc[i0, "alt"]
-            pct = (dp / dwin) * 100
+            dp = alt_arr[i] - alt_arr[i0]
+            grad[i] = (dp / dwin) * 100
         else:
-            pct = 0
-
-        grad.append(pct)
-
+            grad[i] = 0.0
+    
     prof["gradient"] = grad
-
+    
     # ---------------------------------------------------------
     # 2bis) ✅ PENTE INSTANTANÉE (pct) POUR LA CARTE (GPX-like)
     # ---------------------------------------------------------
