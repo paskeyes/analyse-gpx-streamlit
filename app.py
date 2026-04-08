@@ -32,7 +32,22 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-st.title("🚴 Analyse GPX & FIT — Mode Dual || par PaskEyes rev 1.0")
+#st.title("🚴 Analyse GPX & FIT — Mode Dual || par PaskEyes rev 1.0")
+
+st.markdown(
+    """
+    <div style="display: flex; flex-direction: column;">
+        <div style="font-size: 2.2rem; font-weight: 700;">
+            🚴 Analyse GPX &amp; FIT — Mode Dual
+        </div>
+        <div style="font-size: 0.9rem; text-align: right; color: #666;">
+            par PaskEyes — rev 1.0
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
 
 # ----------------------------------------------------------
 # CHOIX DU MODE
