@@ -241,7 +241,7 @@ if mode == "📈 Analyse FIT":
         # ✅ TABLEAU GLOBAL (Montées / Plats / Descentes)
         # ------------------------------------------------------
         st.subheader("📊 Synthèse globale (Montées / Plats / Descentes)")
-        st.write("Il s'agit ici de l'aggrégation des segments complets, pas un cumul point à point comme sur le gpx")
+        st.text("Il s'agit ici de l'aggrégation des segments complets, pas un cumul point à point comme sur le gpx")
 
         
         df_global_display = df_global.copy()
