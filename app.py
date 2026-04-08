@@ -79,15 +79,61 @@ if mode == "📍 Estimation GPX":
 
     params = st.session_state.params
 
-    params["plat_speed"] = st.sidebar.number_input("Vitesse sur plat (km/h)", 5, 60, params["plat_speed"])
-    params["petite_descente_speed"] = st.sidebar.number_input("Vitesse petite descente (km/h)", 5, 80, params["petite_descente_speed"])
-    params["forte_descente_speed"] = st.sidebar.number_input("Vitesse forte descente (km/h)", 5, 100, params["forte_descente_speed"])
-    params["petite_montee_vam"] = st.sidebar.number_input("VAM petite montée (m/h)", 200, 3000, params["petite_montee_vam"])
-    params["forte_montee_vam"] = st.sidebar.number_input("VAM forte montée (m/h)", 200, 3000, params["forte_montee_vam"])
+    # params["plat_speed"] = st.sidebar.number_input("Vitesse sur plat (km/h)", 5, 60, params["plat_speed"])
+    # params["petite_descente_speed"] = st.sidebar.number_input("Vitesse petite descente (km/h)", 5, 80, params["petite_descente_speed"])
+    # params["forte_descente_speed"] = st.sidebar.number_input("Vitesse forte descente (km/h)", 5, 100, params["forte_descente_speed"])
+    # params["petite_montee_vam"] = st.sidebar.number_input("VAM petite montée (m/h)", 200, 3000, params["petite_montee_vam"])
+    # params["forte_montee_vam"] = st.sidebar.number_input("VAM forte montée (m/h)", 200, 3000, params["forte_montee_vam"])
+    params["plat_speed"] = st.sidebar.number_input(
+        "Vitesse sur plat (km/h)",
+        5, 60,
+        value=st.session_state.params["plat_speed"],
+        key="plat_speed"
+    )
+    
+    params["petite_descente_speed"] = st.sidebar.number_input(
+        "Vitesse petite descente (km/h)",
+        5, 80,
+        value=st.session_state.params["petite_descente_speed"],
+        key="petite_descente_speed"
+    )
+    
+    params["forte_descente_speed"] = st.sidebar.number_input(
+        "Vitesse forte descente (km/h)",
+        5, 100,
+        value=st.session_state.params["forte_descente_speed"],
+        key="forte_descente_speed"
+    )
+    
+    params["petite_montee_vam"] = st.sidebar.number_input(
+        "VAM petite montée (m/h)",
+        200, 3000,
+        value=st.session_state.params["petite_montee_vam"],
+        key="petite_montee_vam"
+    )
+    
+    params["forte_montee_vam"] = st.sidebar.number_input(
+        "VAM forte montée (m/h)",
+        200, 3000,
+        value=st.session_state.params["forte_montee_vam"],
+        key="forte_montee_vam"
+    )
 
+    
     colA, colB = st.sidebar.columns(2)
+    # if colA.button("✅ Sauver par défaut"):
+    #     st.success("✅ Paramètres sauvegardés.")
+
     if colA.button("✅ Sauver par défaut"):
+        st.session_state.params = {
+            "plat_speed": st.session_state.plat_speed,
+            "petite_descente_speed": st.session_state.petite_descente_speed,
+            "forte_descente_speed": st.session_state.forte_descente_speed,
+            "petite_montee_vam": st.session_state.petite_montee_vam,
+            "forte_montee_vam": st.session_state.forte_montee_vam,
+        }
         st.success("✅ Paramètres sauvegardés.")
+
     if colB.button("♻️ Réinitialiser"):
         st.session_state.params = {
             "plat_speed": 27,
