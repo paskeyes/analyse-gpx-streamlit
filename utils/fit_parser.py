@@ -170,29 +170,56 @@ def parse_fit_and_compute(uploaded_file):
 
     alt_m = prof["alt"].astype(float)
 
-    pct_list = [0.0] * len(prof)
-    prev_i = 0
+    # ---------------------------------------------------------
+    # ancien code fonctionnel non-optimisé (08/04)
+    # ---------------------------------------------------------
+    
+    #pct_list = [0.0] * len(prof)
+    #prev_i = 0
 
-    for i in range(1, len(prof)):
-        d = float(dist_m.iloc[i] - dist_m.iloc[prev_i])
+    #for i in range(1, len(prof)):
+    #    d = float(dist_m.iloc[i] - dist_m.iloc[prev_i])
 
         # Comme GPX : si < 2 m, on n'utilise pas ce point pour calculer une pente
-        if d < 2.0:
-            pct_list[i] = 0.0
-            continue
+    #    if d < 2.0:
+    #        pct_list[i] = 0.0
+    #        continue
 
-        da = float(alt_m.iloc[i] - alt_m.iloc[prev_i])
+    #    da = float(alt_m.iloc[i] - alt_m.iloc[prev_i])
 
         # Comme GPX : filtre micro-bruit altitude
-        if abs(da) < 0.1:#1.8:
-            da = 0.0
+    #    if abs(da) < 0.1:#1.8:
+    #        da = 0.0
 
-        pct_list[i] = (da / d) * 100.0 if d > 0 else 0.0
-        prev_i = i
+    #    pct_list[i] = (da / d) * 100.0 if d > 0 else 0.0
+    #    prev_i = i
         
         # ✅ ICI : pd.Series pour pouvoir faire fillna()
-        prof["pct"] = pd.to_numeric(pd.Series(pct_list, index=prof.index), errors="coerce").fillna(0.0)
- 
+    #    prof["pct"] = pd.to_numeric(pd.Series(pct_list, index=prof.index), errors="coerce").fillna(0.0)
+
+    # ---------------------------------------------------------
+    # nouveau code optimisé (08/04)
+    # ---------------------------------------------------------
+    pct_list = np.zeros(len(prof), dtype=float)
+    prev_i = 0
+    
+    for i in range(1, len(prof)):
+        d = dist_m.iloc[i] - dist_m.iloc[prev_i]
+        if d < 2.0:
+            continue
+    
+        da = alt_m.iloc[i] - alt_m.iloc[prev_i]
+        if abs(da) < 0.1:
+            da = 0.0
+    
+        pct_list[i] = (da / d) * 100.0 if d > 0 else 0.0
+        prev_i = i
+    
+    # ✅ UNE SEULE assignation Pandas
+    prof["pct"] = pct_list
+    
+
+    
     # ---------------------------------------------------------
     # 3) SEGMENTATION PRIMAIRE PAR GRADIENT
     # ---------------------------------------------------------
