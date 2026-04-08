@@ -1,4 +1,4 @@
-🚴 Application d’analyse GPX & FIT
+#🚴 Application d’analyse GPX & FIT
 Estimation de parcours et analyse détaillée des sorties réelles (approche TrainingPeaks‑like)
 Cette application Streamlit fournit deux modes complémentaires, basés sur des algorithmes cohérents mais adaptés à la nature des données (GPX vs FIT).
 
